@@ -165,3 +165,16 @@ When tasks run through `/bin/zsh -i -c`, there are two easy ways to break quotin
    - Zed interpolation happens before the shell parses the command; if the selection contains backticks (Stata compound strings like `` `\"1234\"' ``), zsh will attempt command substitution and you can get parse errors like `parse error near else`.
    - In addition, Zed may expand `$ZED_SELECTED_TEXT` into the command string before zsh parses it. To avoid this entirely, read the environment variable at runtime via a helper that Zed does not pre-expand, e.g.:
      - `python3 -c 'import os,sys; sys.stdout.write(os.environ.get("ZED_SELECTED_TEXT",""))'`
+
+## Send-to-Stata Keybindings
+
+In `.do` files:
+
+| Shortcut | Action |
+|----------|--------|
+| `cmd-enter` | Send statement to Stata (uses `do`) |
+| `shift-cmd-enter` | Send file to Stata (uses `do`) |
+| `alt-cmd-enter` | Include statement (preserves local macros) |
+| `alt-shift-cmd-enter` | Include file (preserves local macros) |
+
+See [SEND-TO-STATA.md](SEND-TO-STATA.md) for full documentation.
