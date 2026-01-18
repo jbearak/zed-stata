@@ -13,7 +13,7 @@ setup() {
     # Source the validation script functions (without running main)
     local tmp_source
     tmp_source=$(mktemp)
-    sed '/^main "\$@"$/d' "$PROJECT_DIR/validate.sh" > "$tmp_source"
+    sed '/^[[:space:]]*main[[:space:]]*"\$@"[[:space:]]*$/d' "$PROJECT_DIR/validate.sh" > "$tmp_source"
     source "$tmp_source"
     rm -f "$tmp_source"
 }
@@ -42,7 +42,9 @@ setup() {
     
     # Clone and build grammar manually to verify .wasm production
     cd "$test_tmpdir"
-    git clone --quiet "https://github.com/jbearak/tree-sitter-stata" grammar_test
+    if ! git clone --quiet "https://github.com/jbearak/tree-sitter-stata" grammar_test; then
+        skip "git clone failed for test revision"
+    fi
     cd grammar_test
     
     # Build grammar
@@ -68,9 +70,14 @@ setup() {
         skip "tree-sitter CLI not installed"
     fi
     
+    # Create isolated temp directory for deterministic cleanup checks
+    local isolated_tmpdir
+    isolated_tmpdir=$(mktemp -d)
+    export TMPDIR="$isolated_tmpdir"
+    
     # Track temp directories before test
     local tmpdir_count_before
-    tmpdir_count_before=$(find /tmp -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
+    tmpdir_count_before=$(find "$TMPDIR" -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
     
     # Use a known good revision
     local test_revision="HEAD"
@@ -79,18 +86,22 @@ setup() {
     if validate_grammar_build "$test_revision" >/dev/null 2>&1; then
         # Check temp directory count after successful execution
         local tmpdir_count_after
-        tmpdir_count_after=$(find /tmp -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
+        tmpdir_count_after=$(find "$TMPDIR" -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
         
         # Should not have increased (cleanup successful)
         [[ "$tmpdir_count_after" -eq "$tmpdir_count_before" ]]
     else
         # If validation fails, still check cleanup occurred
         local tmpdir_count_after
-        tmpdir_count_after=$(find /tmp -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
+        tmpdir_count_after=$(find "$TMPDIR" -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
         
         # Should not have increased (cleanup on failure)
         [[ "$tmpdir_count_after" -eq "$tmpdir_count_before" ]]
     fi
+    
+    # Cleanup isolated temp directory
+    rm -rf "$isolated_tmpdir"
+    unset TMPDIR
 }
 
 @test "Property 7: Temporary directory cleanup on failure" {
@@ -99,9 +110,14 @@ setup() {
         skip "tree-sitter CLI not installed"
     fi
     
+    # Create isolated temp directory for deterministic cleanup checks
+    local isolated_tmpdir
+    isolated_tmpdir=$(mktemp -d)
+    export TMPDIR="$isolated_tmpdir"
+    
     # Track temp directories before test
     local tmpdir_count_before
-    tmpdir_count_before=$(find /tmp -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
+    tmpdir_count_before=$(find "$TMPDIR" -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
     
     # Use an invalid revision to force failure
     local invalid_revision="invalid_sha_that_does_not_exist_12345"
@@ -114,8 +130,12 @@ setup() {
     
     # Check temp directory count after failed execution
     local tmpdir_count_after
-    tmpdir_count_after=$(find /tmp -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
+    tmpdir_count_after=$(find "$TMPDIR" -maxdepth 1 -name "tmp.*" -type d 2>/dev/null | wc -l)
     
     # Should not have increased (cleanup on failure)
     [[ "$tmpdir_count_after" -eq "$tmpdir_count_before" ]]
+    
+    # Cleanup isolated temp directory
+    rm -rf "$isolated_tmpdir"
+    unset TMPDIR
 }

@@ -82,30 +82,6 @@ language = "Stata"
 EOF
 }
 
-# Helper: Generate a random version string
-generate_random_version() {
-    local major=$((RANDOM % 10))
-    local minor=$((RANDOM % 100))
-    local patch=$((RANDOM % 100))
-    
-    # Randomly add 'v' prefix (50% chance)
-    if [[ $((RANDOM % 2)) -eq 0 ]]; then
-        echo "v${major}.${minor}.${patch}"
-    else
-        echo "${major}.${minor}.${patch}"
-    fi
-}
-
-# Helper: Generate a random commit SHA (40 hex characters)
-generate_random_sha() {
-    local sha=""
-    local hex_chars="0123456789abcdef"
-    for i in {1..40}; do
-        sha+="${hex_chars:$((RANDOM % 16)):1}"
-    done
-    echo "$sha"
-}
-
 #######################################
 # Property 1: Version extraction consistency
 # For any valid src/lib.rs file containing a SERVER_VERSION constant with

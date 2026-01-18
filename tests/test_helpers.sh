@@ -27,7 +27,8 @@ VALIDATE_SCRIPT="$PROJECT_DIR/validate.sh"
 # Source the validation script functions (without running main)
 source_validate_functions() {
     # Create a temporary file that sources validate.sh but doesn't run main
-    local tmp_source=$(mktemp)
+    local tmp_source
+    tmp_source=$(mktemp)
     # Extract just the functions from validate.sh (everything before main "$@")
     sed '/^main "\$@"$/d' "$PROJECT_DIR/validate.sh" > "$tmp_source"
     source "$tmp_source"
