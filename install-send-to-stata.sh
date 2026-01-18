@@ -238,7 +238,7 @@ uninstall() {
     local keymap_file="$ZED_CONFIG_DIR/keymap.json"
     if [[ -f "$keymap_file" ]]; then
         local before_count=$(jq 'length' "$keymap_file")
-        jq '[.[] | select((.context | test("extension == do\\$")) | not)]' "$keymap_file" > "${keymap_file}.tmp"
+        jq '[.[] | select((.context | test("extension == do$")) | not)]' "$keymap_file" > "${keymap_file}.tmp"
         local after_count=$(jq 'length' "${keymap_file}.tmp")
         mv "${keymap_file}.tmp" "$keymap_file"
         if [[ "$before_count" != "$after_count" ]]; then
