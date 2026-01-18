@@ -83,10 +83,11 @@ install_script() {
 # Note: Args must be in command string, not args array (Zed doesn't pass args array correctly)
 # Note: Zed uses ${VAR:default} syntax (no dash), not shell's ${VAR:-default}
 # Note: Send Statement uses stdin mode for robust compound string handling
+# Note: ${ZED_SELECTED_TEXT:} uses empty default to prevent task filtering when no selection
 STATA_TASKS='[
   {
     "label": "Stata: Send Statement",
-    "command": "if [ -n \"$ZED_SELECTED_TEXT\" ]; then printf '"'"'%s'"'"' \"$ZED_SELECTED_TEXT\" | send-to-stata.sh --statement --stdin --file \"$ZED_FILE\"; else send-to-stata.sh --statement --file \"$ZED_FILE\" --row \"$ZED_ROW\"; fi",
+    "command": "if [ -n \"${ZED_SELECTED_TEXT:}\" ]; then printf '"'"'%s'"'"' \"${ZED_SELECTED_TEXT:}\" | send-to-stata.sh --statement --stdin --file \"$ZED_FILE\"; else send-to-stata.sh --statement --file \"$ZED_FILE\" --row \"$ZED_ROW\"; fi",
     "use_new_terminal": false,
     "allow_concurrent_runs": true,
     "reveal": "never",
