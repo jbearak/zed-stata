@@ -52,10 +52,31 @@ check_jq() {
     fi
 }
 
+# Verifies python3 is installed.
+# Python3 is required by the Zed task to read ZED_SELECTED_TEXT from the
+# environment without shell interpretation. Using shell variable expansion
+# would cause the shell to interpret quotes and special characters in the
+# selection, breaking compound strings like `"text"'.
+check_python3() {
+    if ! command -v python3 &> /dev/null; then
+        print_error "python3 is required but not installed"
+        echo ""
+        echo "Install with Homebrew:"
+        echo "  brew install python3"
+        echo ""
+        echo "Or download from: https://www.python.org/downloads/"
+        echo ""
+        echo "Note: python3 is used to read ZED_SELECTED_TEXT without shell"
+        echo "interpretation. Shell expansion would break Stata compound strings."
+        exit 1
+    fi
+}
+
 # Runs all prerequisite checks.
 check_prerequisites() {
     check_macos
     check_jq
+    check_python3
 }
 
 # ============================================================================
@@ -94,8 +115,11 @@ install_script() {
 # IMPORTANT: Do NOT inline selected text into the command via ${ZED_SELECTED_TEXT:}.
 # Zed's interpolation happens before the shell parses the command; if the selection
 # contains backticks (e.g. Stata compound strings), zsh will treat them as command
-# substitution and the task will fail to parse. Use the environment variable
-# $ZED_SELECTED_TEXT instead.
+# substitution and the task will fail to parse.
+# CRITICAL: python3 is REQUIRED to read $ZED_SELECTED_TEXT without shell interpretation.
+# DO NOT use shell expansion like printf '%s' "$ZED_SELECTED_TEXT" - the shell will
+# interpret quotes, backticks, and special characters, breaking compound strings.
+# Python reads raw bytes from the environment without parsing.
 STATA_TASKS=$(cat <<'EOF'
 [
   {
