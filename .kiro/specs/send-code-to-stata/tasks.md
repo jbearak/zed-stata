@@ -6,7 +6,7 @@ This plan implements the send-to-stata feature using shell scripts integrated wi
 
 ## Tasks
 
-- [ ] 1. Create the send-to-stata shell script
+- [x] 1. Create the send-to-stata shell script
   - [x] 1.1 Create `send-to-stata.sh` with argument parsing
     - Parse `--statement` and `--file` modes
     - Parse `--file`, `--row`, `--text` options
