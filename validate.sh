@@ -184,14 +184,6 @@ normalize_version() {
 # LSP Release Validator
 #######################################
 
-# Get GitHub API headers
-get_github_headers() {
-    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-        echo "-H \"Authorization: token $GITHUB_TOKEN\""
-    fi
-    echo "-H \"Accept: application/vnd.github.v3+json\""
-}
-
 # Validate LSP release exists with required assets
 # Arguments:
 #   $1 - Version tag (e.g., "v0.1.11")
@@ -203,8 +195,8 @@ validate_lsp_release() {
     
     print_info "Checking LSP release: $normalized_version"
     
-    # Build curl command with optional auth
-    local curl_opts=(-s -f)
+    # Build curl command with optional auth (no -f flag to capture response body)
+    local curl_opts=(-s -w "\n%{http_code}")
     if [[ -n "${GITHUB_TOKEN:-}" ]]; then
         curl_opts+=(-H "Authorization: token $GITHUB_TOKEN")
     fi
@@ -213,12 +205,34 @@ validate_lsp_release() {
     local api_url="https://api.github.com/repos/${LSP_REPO}/releases/tags/${normalized_version}"
     
     local response
-    if ! response=$(curl "${curl_opts[@]}" "$api_url" 2>&1); then
+    local http_code
+    response=$(curl "${curl_opts[@]}" "$api_url" 2>&1)
+    http_code=$(echo "$response" | tail -n1)
+    response=$(echo "$response" | sed '$d')
+    
+    # Check for rate limiting
+    if [[ "$http_code" == "403" ]] || echo "$response" | grep -q "API rate limit exceeded"; then
+        print_fail "GitHub API rate limit exceeded. Set GITHUB_TOKEN environment variable."
+        return 1
+    fi
+    
+    # Check if release was found
+    if [[ "$http_code" != "200" ]]; then
         # Try without 'v' prefix if it failed
         if [[ "$normalized_version" =~ ^v ]]; then
             local alt_version="${normalized_version#v}"
             api_url="https://api.github.com/repos/${LSP_REPO}/releases/tags/${alt_version}"
-            if ! response=$(curl "${curl_opts[@]}" "$api_url" 2>&1); then
+            response=$(curl "${curl_opts[@]}" "$api_url" 2>&1)
+            http_code=$(echo "$response" | tail -n1)
+            response=$(echo "$response" | sed '$d')
+            
+            # Check rate limit again
+            if [[ "$http_code" == "403" ]] || echo "$response" | grep -q "API rate limit exceeded"; then
+                print_fail "GitHub API rate limit exceeded. Set GITHUB_TOKEN environment variable."
+                return 1
+            fi
+            
+            if [[ "$http_code" != "200" ]]; then
                 print_fail "Release not found: $normalized_version (also tried $alt_version)"
                 return 1
             fi
@@ -226,12 +240,6 @@ validate_lsp_release() {
             print_fail "Release not found: $normalized_version"
             return 1
         fi
-    fi
-    
-    # Check for rate limiting
-    if echo "$response" | grep -q "API rate limit exceeded"; then
-        print_fail "GitHub API rate limit exceeded. Set GITHUB_TOKEN environment variable."
-        return 1
     fi
     
     # Extract asset names from response (portable, no grep -P)

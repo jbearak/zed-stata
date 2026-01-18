@@ -47,8 +47,8 @@ ln -s $(pwd) ~/.local/share/zed/extensions/installed/sight
 
 ### Prerequisites
 
-- Rust toolchain with wasm32-wasip1 target
-- tree-sitter CLI
+- Rust toolchain with wasm32-wasip1 target (`rustup target add wasm32-wasip1`)
+- tree-sitter CLI (`npm install -g tree-sitter-cli`)
 - curl
 - git
 
