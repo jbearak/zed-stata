@@ -48,6 +48,8 @@ The solution must provide a robust mechanism to transfer arbitrary Stata code fr
 1. WHEN the Zed_Task for "Send Statement" is invoked with selected text THEN the Zed_Task SHALL pipe the selected text to the Send_To_Stata_Script via stdin
 2. WHEN the Zed_Task for "Send Statement" is invoked without selected text THEN the Zed_Task SHALL use the `--row` argument for statement detection
 3. THE installer SHALL update the Zed_Task definition to use the stdin-based approach
+4. THE Zed_Task implementation SHALL avoid inlining selected text directly into the zsh command string (to prevent backticks from being parsed as command substitution)
+   - Implementations MAY read `ZED_SELECTED_TEXT` at runtime via a helper (e.g., `python3`) to avoid pre-expansion
 
 ### Requirement 4: Content Preservation
 

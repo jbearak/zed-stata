@@ -38,12 +38,16 @@ flowchart TD
 ### Data Flow
 
 1. **With selection (stdin mode)**:
-   - Zed task: `printf '%s' "${ZED_SELECTED_TEXT:}" | send-to-stata.sh --statement --stdin --file "$ZED_FILE"`
-   - Script reads stdin, creates temp file, sends to Stata
+   - Zed task must avoid inlining the selection into the zsh command string (backticks would be parsed as command substitution).
+   - Implementation reads the environment at runtime and pipes to stdin:
+     - `python3 -c 'import os,sys; sys.exit(0 if os.environ.get("ZED_SELECTED_TEXT", "") else 1)' && \
+        python3 -c 'import os,sys; sys.stdout.write(os.environ.get("ZED_SELECTED_TEXT", ""))' \
+        | send-to-stata.sh --statement --stdin --file "$ZED_FILE"`
+   - Script streams stdin directly to a temp `.do` file, then sends to Stata.
 
 2. **Without selection (row mode)**:
-   - Zed task: `send-to-stata.sh --statement --file "$ZED_FILE" --row "$ZED_ROW"`
-   - Script detects statement at row, creates temp file, sends to Stata
+   - Zed task falls back via `||` to row-based detection:
+     - `send-to-stata.sh --statement --file "$ZED_FILE" --row "$ZED_ROW"`
 
 ## Components and Interfaces
 
@@ -101,58 +105,66 @@ validate_arguments() {
 
 #### 3. Stdin Reader (New Function)
 
-**Purpose**: Read arbitrary content from stdin without interpretation
+**Purpose**: Read arbitrary content from stdin without interpretation *and without losing trailing newlines*.
+
+**Design note**: Command substitution (e.g., `content=$(cat)`) strips trailing newlines and cannot represent NUL bytes. For robustness and performance, stdin is streamed directly into the temp `.do` file.
 
 **Interface**:
 ```bash
-# Reads all content from stdin
-# Returns: content via stdout
-# Exit: 6 on read failure
-read_stdin_content() {
-    local content
-    if ! content=$(cat); then
-        echo "Error: Failed to read from stdin" >&2
-        exit 6
+# Reads stdin and writes it to a file
+# Arguments: out_file, max_bytes (0 = unlimited)
+# Prints: number of bytes written
+# Exit: 6 on read failure, 7 on size limit exceeded
+read_stdin_to_file() {
+    local out_file="$1"
+    local max_bytes="$2"
+
+    cat > "$out_file" || exit 6
+
+    local byte_count
+    byte_count=$(wc -c < "$out_file" | tr -d ' ')
+
+    if [[ "$max_bytes" -gt 0 && "$byte_count" -gt "$max_bytes" ]]; then
+        rm -f "$out_file"
+        exit 7
     fi
-    printf '%s' "$content"
+
+    echo "$byte_count"
 }
 ```
 
 #### 4. Main Entry Point (`main`)
 
 **Changes**:
-- Check `STDIN_MODE` before `TEXT` in statement mode
-- Call `read_stdin_content()` when stdin mode is active
+- In `--statement` mode, stdin is written directly to the temp file when `--stdin` is set.
+- Empty stdin triggers `--row` fallback.
+- File mode copies the file contents to the temp file (avoids command substitution/newline loss).
 
-**Interface**:
+**Interface (high level)**:
 ```bash
 main() {
-    # ... existing setup ...
-    
-    case "$MODE" in
-        statement)
-            if [[ "$STDIN_MODE" == true ]]; then
-                local stdin_content
-                stdin_content=$(read_stdin_content)
-                if [[ -n "$stdin_content" ]]; then
-                    code_to_send="$stdin_content"
-                elif [[ -n "$ROW" ]]; then
-                    # Fall back to row detection if stdin is empty
-                    code_to_send=$(detect_statement "$FILE_PATH" "$ROW")
-                else
-                    echo "Error: stdin is empty and no --row provided" >&2
-                    exit 1
-                fi
-            elif [[ -n "$TEXT" ]]; then
-                code_to_send="$TEXT"
-            else
-                code_to_send=$(detect_statement "$FILE_PATH" "$ROW")
-            fi
-            ;;
-        # ... file mode unchanged ...
-    esac
-    
-    # ... rest unchanged ...
+  # ... validation ...
+  temp_file=$(create_temp_file_path)
+
+  case "$MODE" in
+    statement)
+      if [[ "$STDIN_MODE" == true ]]; then
+        byte_count=$(read_stdin_to_file "$temp_file" "$STATA_STDIN_MAX_BYTES")
+        if [[ "$byte_count" -eq 0 ]]; then
+          detect_statement "$FILE_PATH" "$ROW" > "$temp_file"
+        fi
+      elif [[ -n "$TEXT" ]]; then
+        printf '%s' "$TEXT" > "$temp_file"
+      else
+        detect_statement "$FILE_PATH" "$ROW" > "$temp_file"
+      fi
+      ;;
+    file)
+      cat "$FILE_PATH" > "$temp_file"
+      ;;
+  esac
+
+  send_to_stata "$STATA_APP_NAME" "$temp_file"
 }
 ```
 
@@ -176,15 +188,14 @@ main() {
 ```json
 {
   "label": "Stata: Send Statement",
-  "command": "if [ -n \"${ZED_SELECTED_TEXT:}\" ]; then printf '%s' \"${ZED_SELECTED_TEXT:}\" | send-to-stata.sh --statement --stdin --file \"$ZED_FILE\"; else send-to-stata.sh --statement --file \"$ZED_FILE\" --row \"$ZED_ROW\"; fi"
+  "command": "python3 -c 'import os,sys; sys.exit(0 if os.environ.get(\\\"ZED_SELECTED_TEXT\\\", \\\"\\\") else 1)' && python3 -c 'import os,sys; sys.stdout.write(os.environ.get(\\\"ZED_SELECTED_TEXT\\\", \\\"\\\"))' | send-to-stata.sh --statement --stdin --file \"$ZED_FILE\" || send-to-stata.sh --statement --file \"$ZED_FILE\" --row \"$ZED_ROW\""
 }
 ```
 
 **Rationale**:
-- Uses `printf '%s'` instead of `echo` to avoid interpretation of escape sequences
-- Conditional logic in shell to choose between stdin and row modes
-- Uses `${ZED_SELECTED_TEXT:}` (with empty default) to prevent Zed from filtering out the task when no text is selected
-- The variable is expanded by Zed before shell execution, but piping it avoids the quoting issues
+- Avoids inlining the selection into the zsh `-c` command string (backticks would be parsed as command substitution).
+- Reads selection at runtime from the environment via `python3` and streams it through stdin.
+- Uses `&&` / `||` instead of `if ... else` to keep quoting simpler.
 
 ## Data Models
 

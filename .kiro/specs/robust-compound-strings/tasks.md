@@ -17,15 +17,16 @@ This plan implements stdin-based input for `send-to-stata.sh` to handle Stata co
     - Update statement mode validation to accept `--stdin` as alternative to `--text` or `--row`
     - _Requirements: 1.5, 2.1_
   
-  - [ ] 1.3 Implement read_stdin_content function
-    - Create function that reads all content from stdin using `cat`
-    - Return content via stdout
+  - [ ] 1.3 Implement read_stdin_to_file function
+    - Create function that streams stdin directly to a temp file
+    - Preserve trailing newlines (avoid command substitution)
     - Exit with code 6 on read failure
-    - _Requirements: 1.1, 1.2, 4.1_
+    - Enforce configurable max size (exit 7 on exceed)
+    - _Requirements: 1.1, 1.2, 4.1, 5.1, 5.2_
   
   - [ ] 1.4 Update main function to use stdin mode
     - Check `STDIN_MODE` before `TEXT` in statement mode
-    - Call `read_stdin_content()` when stdin mode is active
+    - Stream stdin to temp file via `read_stdin_to_file()` when stdin mode is active
     - Fall back to `--row` detection if stdin is empty and `--row` provided
     - Error if stdin empty and no `--row`
     - _Requirements: 1.3, 1.4, 4.1_
@@ -72,8 +73,9 @@ This plan implements stdin-based input for `send-to-stata.sh` to handle Stata co
 
 - [x] 5. Update Zed task definitions
   - [ ] 5.1 Update STATA_TASKS in install-send-to-stata.sh
-    - Change "Send Statement" task to use conditional stdin piping
-    - Use: `if [ -n \"$ZED_SELECTED_TEXT\" ]; then printf '%s' \"$ZED_SELECTED_TEXT\" | send-to-stata.sh --statement --stdin --file \"$ZED_FILE\"; else send-to-stata.sh --statement --file \"$ZED_FILE\" --row \"$ZED_ROW\"; fi`
+    - Change "Send Statement" task to avoid inlining selection into the zsh command string
+    - Use a runtime environment read (e.g. via python3) and pipe to stdin:
+      - `python3 -c 'import os,sys; sys.exit(0 if os.environ.get("ZED_SELECTED_TEXT", "") else 1)' && python3 -c 'import os,sys; sys.stdout.write(os.environ.get("ZED_SELECTED_TEXT", ""))' | send-to-stata.sh --statement --stdin --file \"$ZED_FILE\" || send-to-stata.sh --statement --file \"$ZED_FILE\" --row \"$ZED_ROW\"`
     - _Requirements: 3.1, 3.2, 3.3_
   
   - [ ] 5.2 Update documentation in SEND-TO-STATA.md
