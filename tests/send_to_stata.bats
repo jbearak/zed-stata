@@ -49,7 +49,7 @@ teardown() {
 @test "argument parsing: --statement without --row or --text shows error" {
     run "$SCRIPT" --statement --file "$FIXTURES/simple.do"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"Error: --statement mode requires either --text or --row"* ]]
+    [[ "$output" == *"Error: --statement mode requires --stdin, --text, or --row"* ]]
 }
 
 @test "argument parsing: --row with non-integer shows error" {
@@ -74,6 +74,70 @@ teardown() {
     run "$SCRIPT" --statement --statement
     [ "$status" -eq 1 ]
     [[ "$output" == *"Error: Cannot specify multiple modes"* ]]
+}
+
+# ============================================================================
+# Stdin Mode Argument Tests
+# ============================================================================
+
+@test "argument parsing: --stdin flag is recognized" {
+    run "$SCRIPT" --statement --stdin --file "$FIXTURES/simple.do" </dev/null
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"stdin is empty"* ]]
+}
+
+@test "argument parsing: --stdin and --text are mutually exclusive" {
+    run "$SCRIPT" --statement --stdin --text "test" --file "$FIXTURES/simple.do"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"--stdin and --text are mutually exclusive"* ]]
+}
+
+@test "argument parsing: --stdin with --row is valid" {
+    run env STATA_APP=StataMP "$SCRIPT" --statement --stdin --file "$FIXTURES/simple.do" --row 2 </dev/null
+    [[ "$status" -eq 0 || "$status" -eq 5 ]]
+}
+
+# ============================================================================
+# Stdin Content Tests
+# ============================================================================
+
+@test "stdin: simple content via stdin" {
+    local content="display 123"
+    temp_file=$(echo "$content" | bash -c "export TMPDIR='$TEMP_DIR'; source '$SCRIPT'; stdin_content=\$(read_stdin_content); create_temp_file \"\$stdin_content\"")
+    [ -f "$temp_file" ]
+    [ "$(cat "$temp_file")" = "$content" ]
+}
+
+@test "stdin: compound string via stdin" {
+    local content='`"test"'"'"
+    temp_file=$(printf '%s' "$content" | bash -c "export TMPDIR='$TEMP_DIR'; source '$SCRIPT'; stdin_content=\$(read_stdin_content); create_temp_file \"\$stdin_content\"")
+    [ -f "$temp_file" ]
+    [ "$(cat "$temp_file")" = "$content" ]
+}
+
+@test "stdin: content with backticks" {
+    local content='display `var`'
+    temp_file=$(printf '%s' "$content" | bash -c "export TMPDIR='$TEMP_DIR'; source '$SCRIPT'; stdin_content=\$(read_stdin_content); create_temp_file \"\$stdin_content\"")
+    [ -f "$temp_file" ]
+    [ "$(cat "$temp_file")" = "$content" ]
+}
+
+@test "stdin: content with dollar signs" {
+    local content='display $var'
+    temp_file=$(printf '%s' "$content" | bash -c "export TMPDIR='$TEMP_DIR'; source '$SCRIPT'; stdin_content=\$(read_stdin_content); create_temp_file \"\$stdin_content\"")
+    [ -f "$temp_file" ]
+    [ "$(cat "$temp_file")" = "$content" ]
+}
+
+@test "stdin: empty stdin with --row fallback" {
+    run env STATA_APP=StataMP "$SCRIPT" --statement --stdin --file "$FIXTURES/simple.do" --row 2 </dev/null
+    [[ "$status" -eq 0 || "$status" -eq 5 ]]
+}
+
+@test "stdin: empty stdin without --row shows error" {
+    run "$SCRIPT" --statement --stdin --file "$FIXTURES/simple.do" </dev/null
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"stdin is empty and no --row provided"* ]]
 }
 
 # ============================================================================
