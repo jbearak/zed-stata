@@ -18,15 +18,20 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Prints an error message in red.
 print_error() { echo -e "${RED}Error:${NC} $1" >&2; }
+# Prints a success message with green checkmark.
 print_success() { echo -e "${GREEN}✓${NC} $1"; }
+# Prints a warning message in yellow.
 print_warning() { echo -e "${YELLOW}Warning:${NC} $1"; }
+# Prints an info message.
 print_info() { echo "$1"; }
 
 # ============================================================================
 # Prerequisite Checks
 # ============================================================================
 
+# Verifies the script is running on macOS.
 check_macos() {
     if [[ "$(uname)" != "Darwin" ]]; then
         print_error "This script requires macOS (for AppleScript support)"
@@ -34,6 +39,7 @@ check_macos() {
     fi
 }
 
+# Verifies jq is installed.
 check_jq() {
     if ! command -v jq &> /dev/null; then
         print_error "jq is required but not installed"
@@ -46,6 +52,7 @@ check_jq() {
     fi
 }
 
+# Runs all prerequisite checks.
 check_prerequisites() {
     check_macos
     check_jq
@@ -55,6 +62,7 @@ check_prerequisites() {
 # Script Installation
 # ============================================================================
 
+# Installs send-to-stata.sh to ~/.local/bin.
 install_script() {
     # Create install directory if needed
     if [[ ! -d "$INSTALL_DIR" ]]; then
@@ -110,6 +118,7 @@ STATA_TASKS=$(cat <<'EOF'
 EOF
 )
 
+# Installs Stata tasks to Zed's tasks.json.
 install_tasks() {
     local tasks_file="$ZED_CONFIG_DIR/tasks.json"
     
@@ -136,6 +145,7 @@ install_tasks() {
 # Uses action::Sequence to save the file before spawning the task
 # Nullifies the default cmd-enter binding in the broader context to prevent newline insertion
 
+# Installs Stata keybindings to Zed's keymap.json.
 install_keybindings() {
     local keymap_file="$ZED_CONFIG_DIR/keymap.json"
     
@@ -181,6 +191,7 @@ EOF
 # Stata Detection
 # ============================================================================
 
+# Detects installed Stata variant in /Applications/Stata/.
 detect_stata() {
     local found=""
     for app in StataMP StataSE StataIC Stata; do
@@ -202,6 +213,7 @@ detect_stata() {
 # Installation Summary
 # ============================================================================
 
+# Prints post-installation usage summary.
 print_summary() {
     echo ""
     echo "Installation complete!"
@@ -219,6 +231,7 @@ print_summary() {
 # Uninstall
 # ============================================================================
 
+# Removes installed script, tasks, and keybindings.
 uninstall() {
     local removed=false
     
@@ -267,6 +280,7 @@ uninstall() {
 # Main
 # ============================================================================
 
+# Main entry point. Handles --uninstall flag or runs installation.
 main() {
     if [[ "${1:-}" == "--uninstall" ]]; then
         uninstall
