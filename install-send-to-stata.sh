@@ -129,16 +129,9 @@ install_keybindings() {
     local keymap_file="$ZED_CONFIG_DIR/keymap.json"
     
     # Define keybindings JSON inline to avoid shell escaping issues
-    # Order matters: null bindings for broad context first, then Stata-specific bindings
     local stata_keybindings
     stata_keybindings=$(cat << 'EOF'
 [
-  {
-    "context": "(Editor && mode == full)",
-    "bindings": {
-      "cmd-enter": "null"
-    }
-  },
   {
     "context": "Editor && extension == do",
     "bindings": {
