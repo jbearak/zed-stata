@@ -105,6 +105,22 @@ STATA_TASKS=$(cat <<'EOF'
     "allow_concurrent_runs": true,
     "reveal": "never",
     "hide": "on_success"
+  },
+  {
+    "label": "Stata: Include Statement",
+    "command": "python3 -c 'import os,sys; sys.exit(0 if os.environ.get(\"ZED_SELECTED_TEXT\", \"\") else 1)' && python3 -c 'import os,sys; sys.stdout.write(os.environ.get(\"ZED_SELECTED_TEXT\", \"\"))' | send-to-stata.sh --statement --include --stdin --file \"$ZED_FILE\" || send-to-stata.sh --statement --include --file \"$ZED_FILE\" --row \"$ZED_ROW\"",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": true,
+    "reveal": "never",
+    "hide": "on_success"
+  },
+  {
+    "label": "Stata: Include File",
+    "command": "send-to-stata.sh --file --include --file \"$ZED_FILE\"",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": true,
+    "reveal": "never",
+    "hide": "on_success"
   }
 ]
 EOF
@@ -147,7 +163,9 @@ install_keybindings() {
     "context": "Editor && extension == do",
     "bindings": {
       "cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Send Statement"}]]],
-      "shift-cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Send File"}]]]
+      "shift-cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Send File"}]]],
+      "alt-cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Include Statement"}]]],
+      "alt-shift-cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Include File"}]]]
     }
   }
 ]
@@ -207,8 +225,10 @@ print_summary() {
     echo "Installation complete!"
     echo ""
     echo "Keybindings (in .do files):"
-    echo "  cmd-enter        Send current statement (or selection) to Stata"
-    echo "  shift-cmd-enter  Send entire file to Stata"
+    echo "  cmd-enter            Send current statement (or selection) to Stata"
+    echo "  shift-cmd-enter      Send entire file to Stata"
+    echo "  alt-cmd-enter        Include statement (preserves local macros)"
+    echo "  alt-shift-cmd-enter  Include file (preserves local macros)"
     echo ""
     echo "Configuration:"
     echo "  Set STATA_APP environment variable to override Stata variant detection"
