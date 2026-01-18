@@ -455,6 +455,12 @@ send_to_stata() {
     local stata_app="$1"
     local temp_file="$2"
 
+    # Validate stata_app to prevent command injection
+    case "$stata_app" in
+        StataMP|StataSE|StataIC|StataBE|Stata) ;;
+        *) echo "Error: Invalid Stata application: $stata_app" >&2; exit 1 ;;
+    esac
+
     # Escape the temp file path for AppleScript
     local escaped_path
     escaped_path=$(escape_for_applescript "$temp_file")
