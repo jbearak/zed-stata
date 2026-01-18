@@ -43,8 +43,10 @@ In `.do` files:
 
 The `shift-enter` and `opt-enter` shortcuts use Zed's `SendKeystrokes` to paste code into the active terminal panel:
 
-- **`shift-enter`**: Copies the current selection, switches to the terminal (`ctrl-``), pastes, executes, and switches back
-- **`opt-enter`**: Selects the current line, copies it, switches to the terminal, pastes, executes, switches back, and moves to the next line
+- **`shift-enter`**: Copies the current selection, switches to the terminal (`ctrl-``), pastes, and executes
+- **`opt-enter`**: Selects the current line, copies it, switches to the terminal, pastes, and executes (functionally equivalent to selecting a line and pressing `shift-enter`)
+
+Both shortcuts copy the selected text to your Mac's clipboard. After execution, focus remains in the terminal—any subsequent keystrokes go to the terminal, not the editor. Press `ctrl-`` to return focus to the editor.
 
 These shortcuts paste directly into whatever terminal is active in Zed. To use them with Stata, open a terminal panel and launch the Stata CLI (e.g., `stata`, or `stata-mp`). This is particularly useful for:
 
