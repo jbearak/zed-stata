@@ -72,7 +72,7 @@ EOF
 }
 
 # Parses command-line arguments and sets global variables.
-# Sets: MODE, FILE_PATH, ROW, TEXT, STDIN_MODE
+# Sets: MODE, FILE_PATH, ROW, TEXT, STDIN_MODE, INCLUDE_MODE
 # Exits with code 1 on invalid arguments.
 parse_arguments() {
     if [[ $# -eq 0 ]]; then
