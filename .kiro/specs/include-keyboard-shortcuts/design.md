@@ -102,7 +102,7 @@ Two new tasks mirror the existing tasks with `--include` flag added:
 ```json
 {
   "label": "Stata: Include File",
-  "command": "send-to-stata.sh --file --include --file \"$ZED_FILE\"",
+  "command": "send-to-stata.sh --file-mode --include --file \"$ZED_FILE\"",
   "use_new_terminal": false,
   "allow_concurrent_runs": true,
   "reveal": "never",
