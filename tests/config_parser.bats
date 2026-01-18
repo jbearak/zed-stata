@@ -1,4 +1,7 @@
 #!/usr/bin/env bats
+
+load test_helpers
+
 #
 # config_parser.bats - Property-based tests for configuration parser functions
 #
