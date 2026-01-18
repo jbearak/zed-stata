@@ -63,11 +63,12 @@ This document defines the requirements for sending Stata code from Zed editor to
 
 #### Acceptance Criteria
 
-1. THE Send_Script SHALL detect `///` at the end of a line as a Continuation_Marker
-2. THE Send_Script SHALL ignore `///` that appears within strings or comments
-3. WHEN on a continuation line, THE Send_Script SHALL search backwards to find the statement start
-4. WHEN on a line with `///`, THE Send_Script SHALL search forwards to find all continuation lines
-5. THE Send_Script SHALL handle nested or chained continuation markers correctly
+1. THE Send_Script SHALL detect `///` at the end of a line (ignoring trailing whitespace) as a Continuation_Marker
+2. WHEN on a continuation line, THE Send_Script SHALL search backwards to find the statement start
+3. WHEN on a line with `///`, THE Send_Script SHALL search forwards to find all continuation lines
+4. THE Send_Script SHALL handle nested or chained continuation markers correctly
+
+**Note:** The implementation uses a simple regex pattern (`///[[:space:]]*$`) for continuation detection. It does not parse Stata syntax, so `///` at the end of a line inside a string or comment will still be treated as a continuation marker. This is a known limitation chosen for simplicity and reliability.
 
 ### Requirement 5: Installation
 
