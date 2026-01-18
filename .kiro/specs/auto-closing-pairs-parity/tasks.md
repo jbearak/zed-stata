@@ -8,7 +8,7 @@ This implementation fixes the auto-closing pairs behavior in sight-zed to achiev
 
 - [x] 1. Update bracket configuration in config.toml
   - [x] 1.1 Add apostrophe and double quote to `autoclose_before` setting
-    - Change `autoclose_before = ";:.,=}])>\` \n\t"` to `autoclose_before = ";:.,=}])>'\"\` \n\t"`
+    - Change `autoclose_before = ";:.,=}])>` \n\t"` to `autoclose_before = ";:.,=}])>'\"` \n\t"`
     - This enables auto-closing when cursor is before `'` or `"`
     - _Requirements: 4.1, 4.2, 3.1, 3.2_
   
