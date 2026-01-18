@@ -1,0 +1,29 @@
+id = "sight"
+name = "Sight - Stata Language Server"
+description = "Language support for Stata using LSP"
+version = "0.1.10"
+schema_version = 1
+authors = ["Jonathan Marc Bearak"]
+repository = "https://github.com/jbearak/sight-zed"
+themes = []
+icon_themes = []
+languages = ["languages/stata"]
+capabilities = []
+
+[lib]
+kind = "Rust"
+version = "0.7.0"
+
+[grammars.stata]
+repository = "https://github.com/jbearak/tree-sitter-stata"
+rev = "872da1d652dd32cc871ea4a3c3f84bdea7c68c8c"
+
+[language_servers.sight]
+name = "Sight"
+language = "Stata"
+
+[context_servers]
+
+[agent_servers]
+
+[slash_commands]
