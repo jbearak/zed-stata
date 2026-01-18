@@ -40,7 +40,7 @@ This feature adds support for installing send-to-stata via curl-pipe-to-bash, en
 #### Acceptance Criteria
 
 1. WHEN the local Script_File does not exist, THE Installer SHALL fetch `send-to-stata.sh` from the GitHub_Raw_URL
-2. THE Installer SHALL construct the URL from base `https://raw.githubusercontent.com/jbearak/sight` and a configurable ref (default: `main`)
+2. THE Installer SHALL construct the URL from base `https://raw.githubusercontent.com/jbearak/sight-zed` and a configurable ref (default: `main`)
 3. WHEN fetching from GitHub, THE Installer SHALL verify the download succeeded before proceeding
 4. IF the download fails, THEN THE Installer SHALL display an error message including the attempted URL and exit with non-zero status
 5. WHERE the `SIGHT_GITHUB_REF` environment variable is set, THE Installer SHALL use that value instead of `main` for the GitHub ref
@@ -51,7 +51,7 @@ This feature adds support for installing send-to-stata via curl-pipe-to-bash, en
 
 #### Acceptance Criteria
 
-1. THE Installer SHALL support execution via `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jbearak/sight/main/install-send-to-stata.sh)"`
+1. THE Installer SHALL support execution via `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jbearak/sight-zed/main/install-send-to-stata.sh)"`
 2. WHEN executed via Curl_Pipe, THE Installer SHALL complete all installation steps identically to Local_Clone installation
 
 ### Requirement 5: Installation Parity
