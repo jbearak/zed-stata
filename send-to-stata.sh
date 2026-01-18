@@ -37,6 +37,7 @@ ROW=""
 TEXT=""
 STDIN_MODE=false
 
+# Prints usage information to stdout.
 print_usage() {
     cat <<EOF
 Usage: send-to-stata.sh <mode> [options]
@@ -68,6 +69,9 @@ Exit Codes:
 EOF
 }
 
+# Parses command-line arguments and sets global variables.
+# Sets: MODE, FILE_PATH, ROW, TEXT, STDIN_MODE
+# Exits with code 1 on invalid arguments.
 parse_arguments() {
     if [[ $# -eq 0 ]]; then
         echo "Error: No arguments provided" >&2
@@ -142,6 +146,8 @@ parse_arguments() {
     done
 }
 
+# Validates parsed arguments for consistency and completeness.
+# Exits with code 1 if validation fails.
 validate_arguments() {
     # Check mutual exclusivity of --stdin and --text
     if [[ "$STDIN_MODE" == true && -n "$TEXT" ]]; then
@@ -471,6 +477,7 @@ send_to_stata() {
 # Main Entry Point
 # ============================================================================
 
+# Main entry point. Parses arguments, detects Stata, and sends code.
 main() {
     parse_arguments "$@"
     validate_arguments
