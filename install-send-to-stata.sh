@@ -129,20 +129,27 @@ install_keybindings() {
     local keymap_file="$ZED_CONFIG_DIR/keymap.json"
     
     # Define keybindings JSON inline to avoid shell escaping issues
+    # Order matters: null bindings for broad context first, then Stata-specific bindings
     local stata_keybindings
     stata_keybindings=$(cat << 'EOF'
 [
+  {
+    "context": "(Editor && mode == full)",
+    "bindings": {
+      "cmd-enter": "null"
+    }
+  },
+  {
+    "context": "(Editor && mode == full)",
+    "bindings": {
+      "cmd-shift-enter": "null"
+    }
+  },
   {
     "context": "Editor && extension == do",
     "bindings": {
       "cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Send Statement"}]]],
       "shift-cmd-enter": ["action::Sequence", ["workspace::Save", ["task::Spawn", {"task_name": "Stata: Send File"}]]]
-    }
-  },
-  {
-    "context": "Editor && mode == full && extension == do",
-    "bindings": {
-      "cmd-enter": null
     }
   }
 ]
@@ -153,7 +160,8 @@ EOF
     mkdir -p "$ZED_CONFIG_DIR"
     
     # Create or update keymap.json
-    if [[ ! -f "$keymap_file" ]]; then
+    if [[ ! -f "$keymap_file" ]] || [[ ! -s "$keymap_file" ]]; then
+        # File doesn't exist or is empty
         echo "$stata_keybindings" > "$keymap_file"
     else
         # Try to parse existing file; if it fails (e.g., JSON5 with trailing commas),
