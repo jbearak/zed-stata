@@ -6,7 +6,8 @@
   - Define parameters: `-Statement`, `-FileMode`, `-Include`, `-Stdin`, `-File`, `-Row`
   - Add parameter validation (mutually exclusive modes, required `-File`)
   - Implement exit code constants matching design (0-5)
-  - **Validates: Requirements 11.1, 11.2**
+  - Add timing configuration variables at top of script (`$clipPause`, `$winPause`, `$keyPause`)
+  - **Validates: Requirements 11.1, 11.2, 16.1, 16.2**
 
 - [ ] 1.2 Implement `Find-StataInstallation` function
   - Check `$env:STATA_PATH` first and return if valid
@@ -20,7 +21,8 @@
 
 - [ ] 1.3 Implement `Find-StataWindow` function
   - Get processes matching `Stata*` pattern
-  - Filter by window title containing "Stata/"
+  - Filter by window title matching `^Stata/(MP|SE|BE|IC)` or `^StataNow/(MP|SE|BE|IC)`
+  - Exclude Stata Viewer and auxiliary windows
   - Return process object with `MainWindowHandle`, or `$null`
   - **Validates: Requirements 5.3, 5.7**
 
@@ -79,23 +81,35 @@
 
 - [ ] 4.1 Add Win32 API type definitions
   - Add `System.Windows.Forms` assembly
-  - Add P/Invoke for `SetForegroundWindow`
-  - Add P/Invoke for `ShowWindow`
-  - **Validates: Requirements 13.4**
+  - Add P/Invoke for `SetForegroundWindow`, `GetForegroundWindow`
+  - Add P/Invoke for `ShowWindow`, `IsIconic`
+  - Add P/Invoke for `keybd_event` (ALT key workaround)
+  - Define constants: `SW_RESTORE`, `VK_MENU`, `KEYEVENTF_KEYUP`
+  - **Validates: Requirements 13.4, 15.1, 15.2**
 
-- [ ] 4.2 Implement `Send-ToStata` function
+- [ ] 4.2 Implement `Invoke-FocusAcquisition` function
+  - Accept `$WindowHandle` and `$MaxRetries` (default 3) parameters
+  - Restore window if minimized using `ShowWindow` with `SW_RESTORE`
+  - Simulate ALT keypress via `keybd_event` before `SetForegroundWindow`
+  - Verify focus with `GetForegroundWindow` check
+  - Retry with increasing delays (10ms, 20ms, 30ms)
+  - Return `$true` on success, `$false` after max retries
+  - **Validates: Requirements 5.10, 5.11, 5.12, 5.13, 15.1, 15.2, 15.3**
+
+- [ ] 4.3 Implement `Send-ToStata` function
   - Build command string: `do "{path}"` or `include "{path}"`
   - Copy command to clipboard via `[System.Windows.Forms.Clipboard]::SetText()`
   - Find Stata window using `Find-StataWindow`
-  - Activate window using `SetForegroundWindow`
-  - Wait configurable delay (default 100ms, `$env:STATA_ACTIVATION_DELAY`)
-  - Send `Ctrl+V` via `SendKeys::SendWait("^v")`
-  - Wait inter-key delay (default 50ms, `$env:STATA_INTERKEY_DELAY`)
-  - Send `Ctrl+D` via `SendKeys::SendWait("^d")`
+  - Call `Invoke-FocusAcquisition` to activate window
+  - Send `Ctrl+1` via `SendKeys::SendWait("^1")` to focus Command window
+  - Wait `$clipPause` delay after clipboard copy
+  - Send `Ctrl+V` via `SendKeys::SendWait("^v")` to paste
+  - Wait `$keyPause` delay between keystrokes
+  - Send `Enter` via `SendKeys::SendWait("{ENTER}")` to execute
   - Handle errors and exit with code 5 on failure
-  - **Validates: Requirements 5.1, 5.2, 5.4, 5.5, 5.6, 5.8**
+  - **Validates: Requirements 5.1, 5.2, 5.4, 5.5, 5.6, 5.7, 5.9, 16.5, 16.6, 16.7**
 
-- [ ] 4.3 Write property test for command format by mode (Property 6)
+- [ ] 4.4 Write property test for command format by mode (Property 6)
   - Generate random temp file paths
   - Verify `do "{path}"` when Include=false, `include "{path}"` when Include=true
   - Run 100+ iterations
@@ -117,9 +131,10 @@
   - Exit 2: File not found with path in message
   - Exit 3: Temp file creation failed
   - Exit 4: Stata not found (installation or running instance)
-  - Exit 5: SendKeys execution failed
+  - Exit 5: SendKeys execution failed or focus acquisition failed with diagnostic info
   - All errors to stderr
-  - **Validates: Requirements 11.1-11.7**
+  - Include UIPI diagnostic message when focus fails (suggest restarting Stata without elevation)
+  - **Validates: Requirements 11.1-11.8, 15.4, 15.5**
 
 - [ ] 5.3 Write property test for STATA_PATH override (Property 1)
   - Set `$env:STATA_PATH` to various valid paths
@@ -153,8 +168,9 @@
   - Remove existing tasks with labels starting with "Stata:"
   - Add four tasks: Send Statement, Send File, Include Statement, Include File
   - Configure: `use_new_terminal: false`, `allow_concurrent_runs: true`, `reveal: never`, `hide: on_success`
+  - Launch PowerShell with `-sta` flag and `-ExecutionPolicy Bypass`
   - Write back preserving non-Stata tasks
-  - **Validates: Requirements 7.2, 7.5, 8.1-8.5**
+  - **Validates: Requirements 7.2, 7.5, 8.1-8.7**
 
 - [ ] 6.4 Implement `Install-Keybindings` function
   - Read existing `$env:APPDATA\Zed\keymap.json` or create empty array
@@ -234,8 +250,8 @@
 
 ## Task 7: Implement Cross-Platform Test Infrastructure
 
-- [ ] 7.1 Create mockable wrapper functions
-  - `Set-ClipboardContent` - wraps clipboard operations
+- [ ] 7.1 Create mockable wrapper functions in `send-to-stata.ps1`
+  - `Set-ClipboardContent` - wraps clipboard operations with STA mode check
   - `Invoke-WindowActivation` - wraps SetForegroundWindow
   - `Send-Keystrokes` - wraps SendKeys
   - `Get-StataProcesses` - wraps process enumeration
@@ -296,8 +312,8 @@
 ## Task 9: Documentation
 
 - [ ] 9.1 Create Windows section in SEND-TO-STATA.md
-  - Installation instructions using `irm | iex`
-  - Keybinding reference table
+  - Installation instructions using `irm | iex` pattern
+  - Keybinding reference table (ctrl-enter, shift-ctrl-enter, etc.)
   - Terminal shortcuts documentation with limitations
   - Troubleshooting guide
   - **Validates: Requirements 10.6, 10.7, 10.8**
@@ -317,3 +333,9 @@
   - Note that registration requires elevation (UAC prompt)
   - In troubleshooting section: if send-to-stata stops working after upgrading Stata, re-run the installer to fix
   - **Validates: Requirements 17.8, 17.9, 17.16**
+
+- [ ] 9.4 Document timing configuration
+  - Explain the hardcoded timing values (`$clipPause`, `$winPause`, `$keyPause`)
+  - Document when users might need to increase values (older/slower machines)
+  - Explain how to locate and modify timing values in the script
+  - **Validates: Requirements 16.2, 16.3, 16.4**
