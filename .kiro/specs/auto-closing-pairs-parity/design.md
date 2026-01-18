@@ -84,7 +84,7 @@ brackets = [
   { start = "`", end = "'", close = true, newline = false },
 ]
 
-autoclose_before = ";:.,=}])>'\" \n\t"
+autoclose_before = ";:.,=}])>'\"` \n\t"
 ```
 
 **Changes:**
@@ -155,7 +155,7 @@ No changes needed.
 
 ### Zed Extension API Capabilities
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Zed Extension API                        │
 ├─────────────────────────────────────────────────────────────┤
