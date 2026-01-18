@@ -96,19 +96,17 @@ install_script() {
   chmod +x "$INSTALL_DIR/send-to-stata.sh"
   print_success "Installed send-to-stata.sh to $INSTALL_DIR"
 
-  # Check PATH and add to shell configs if needed
-  if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+  # Check if binary is findable; if not, configure PATH
+  if ! command -v send-to-stata.sh &>/dev/null; then
     local path_line='export PATH="$HOME/.local/bin:$PATH"'
     local added_to=""
     # Determine primary shell config (create if needed)
-    # Check login shell ($SHELL) and current shell (ps) to handle both cases
     local primary_rc="$HOME/.zshrc"
     local current_shell=$(ps -p $$ -o comm=)
     [[ "$SHELL" == */bash || "$current_shell" == *bash* ]] && primary_rc="$HOME/.bashrc"
     for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
-      # Create primary shell config if it doesn't exist
       [[ ! -f "$rc" && "$rc" == "$primary_rc" ]] && touch "$rc"
-      if [[ -f "$rc" ]] && ! grep -q 'export PATH=.*\.local/bin' "$rc"; then
+      if [[ -f "$rc" ]] && ! grep -q '\.local/bin' "$rc"; then
         echo "" >> "$rc"
         echo "# Added by send-to-stata installer" >> "$rc"
         echo "$path_line" >> "$rc"
