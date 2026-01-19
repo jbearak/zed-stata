@@ -21,5 +21,7 @@ Thumbs.db
 
 # Grammars - fetched from remote repository, never commit locally
 /grammars/
+# But include pre-built wasm for Windows (Zed can't compile grammars on Windows)
+!/grammars/stata.wasm
 /tree-sitter-stata
 scratch.do
