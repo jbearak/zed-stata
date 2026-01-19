@@ -5,7 +5,7 @@ param(
     [switch]$Uninstall,
     [switch]$Yes,
 
-    [string]$ZedExtensionsDir = "$(Join-Path $env:APPDATA 'Zed\extensions\installed')",
+    [string]$ZedExtensionsDir = "$(Join-Path $env:LOCALAPPDATA 'Zed\extensions\installed')",
 
     # Forwarded to install-send-to-stata.ps1
     [switch]$RegisterAutomation,
