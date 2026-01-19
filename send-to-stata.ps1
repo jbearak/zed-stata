@@ -215,10 +215,8 @@ function Read-SourceFile {
     return [System.IO.File]::ReadAllText($FilePath)
 }
 
-function Read-StdinContent {
-    $lines = @($input)
-    return $lines -join [Environment]::NewLine
-}
+# Note: Stdin must be read in main script body, not in a function
+# $input is only available at script scope
 
 function Send-ToStata {
     param(
@@ -257,14 +255,18 @@ if (-not (Test-Path $File)) {
     exit $EXIT_FILE_NOT_FOUND
 }
 
-if ($Stdin) {
-    $content = Read-StdinContent
-} elseif (-not $Stdin -and $Row) {
-    $content = Get-StatementAtRow -FilePath $File -Row $Row
+# Read stdin at script scope (must be done here, not in a function)
+$stdinContent = @($input) -join [Environment]::NewLine
+
+if ($Stdin -and $stdinContent) {
+    $content = $stdinContent
 } elseif ($FileMode) {
     $content = Read-SourceFile -FilePath $File
-} else {
+} elseif ($Row) {
     $content = Get-StatementAtRow -FilePath $File -Row $Row
+} else {
+    Write-Error "Error: Either -FileMode or -Row must be specified"
+    exit $EXIT_INVALID_ARGS
 }
 
 $tempFile = New-TempDoFile -Content $content
