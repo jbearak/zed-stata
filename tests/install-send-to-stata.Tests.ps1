@@ -1,10 +1,6 @@
-BeforeAll {
-    # Don't source the installer directly as it runs main execution
-    # Instead, define test versions of the functions
-}
 
 Describe "Config File Preservation" {
-    It "Property8: preserves non-Stata entries in tasks.json" -Tag "Property8" {
+    It "Property8: preserves non-Stata entries in tasks.json" {
         for ($i = 0; $i -lt 100; $i++) {
             $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "test_$([System.IO.Path]::GetRandomFileName())"
             New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
@@ -24,15 +20,15 @@ Describe "Config File Preservation" {
             $tasks | ConvertTo-Json -Depth 10 | Set-Content $tasksFile
             
             # Verify non-Stata entries preserved
-            $result = Get-Content $tasksFile | ConvertFrom-Json
-            ($result | Where-Object { $_.label -eq "MyTask-$i" }) | Should -Not -BeNullOrEmpty
-            ($result | Where-Object { $_.label -eq "OtherTask" }) | Should -Not -BeNullOrEmpty
+            $result = @(Get-Content $tasksFile -Raw | ConvertFrom-Json)
+            (($result | Where-Object { $_.label -eq "MyTask-$i" }).Count) | Should BeGreaterThan 0
+            (($result | Where-Object { $_.label -eq "OtherTask" }).Count) | Should BeGreaterThan 0
             
             Remove-Item $tempDir -Recurse -Force
         }
     }
     
-    It "Property8: preserves non-Stata entries in keymap.json" -Tag "Property8" {
+    It "Property8: preserves non-Stata entries in keymap.json" {
         for ($i = 0; $i -lt 100; $i++) {
             $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "test_$([System.IO.Path]::GetRandomFileName())"
             New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
@@ -52,9 +48,9 @@ Describe "Config File Preservation" {
             $keybindings | ConvertTo-Json -Depth 10 | Set-Content $keymapFile
             
             # Verify non-Stata entries preserved
-            $result = Get-Content $keymapFile | ConvertFrom-Json
-            ($result | Where-Object { $_.context -eq "Editor" }) | Should -Not -BeNullOrEmpty
-            ($result | Where-Object { $_.context -eq "Workspace" }) | Should -Not -BeNullOrEmpty
+            $result = @(Get-Content $keymapFile -Raw | ConvertFrom-Json)
+            (($result | Where-Object { $_.context -eq "Editor" }).Count) | Should BeGreaterThan 0
+            (($result | Where-Object { $_.context -eq "Workspace" }).Count) | Should BeGreaterThan 0
             
             Remove-Item $tempDir -Recurse -Force
         }
@@ -62,27 +58,27 @@ Describe "Config File Preservation" {
 }
 
 Describe "Checksum Verification" {
-    It "Property9: verifies checksum correctly" -Tag "Property9" {
+    It "Property9: verifies checksum correctly" {
         for ($i = 0; $i -lt 100; $i++) {
             $content = "test content $i with random $(Get-Random)"
             $stream = [System.IO.MemoryStream]::new([System.Text.Encoding]::UTF8.GetBytes($content))
             $actualHash = (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash
             
             # Correct hash should pass
-            $actualHash | Should -Be $actualHash
+            $actualHash | Should Be $actualHash
             
             # Wrong hash should differ
             $wrongHash = "0000000000000000000000000000000000000000000000000000000000000000"
-            $actualHash | Should -Not -Be $wrongHash
+            ($actualHash -ne $wrongHash) | Should Be $true
         }
     }
     
-    It "Property9: skips verification when SIGHT_GITHUB_REF is set" -Tag "Property9" {
+    It "Property9: skips verification when SIGHT_GITHUB_REF is set" {
         $env:SIGHT_GITHUB_REF = "test-branch"
         try {
             # When SIGHT_GITHUB_REF is set, checksum verification should be skipped
             $skipVerification = $null -ne $env:SIGHT_GITHUB_REF
-            $skipVerification | Should -Be $true
+            $skipVerification | Should Be $true
         } finally {
             Remove-Item env:SIGHT_GITHUB_REF -ErrorAction SilentlyContinue
         }
@@ -90,12 +86,12 @@ Describe "Checksum Verification" {
 }
 
 Describe "Automation Registration" {
-    It "Property14: Registration is idempotent" -Tag "Property14", "WindowsOnly" {
+    It "Property14: Registration is idempotent" {
         if ($env:OS -ne "Windows_NT") { Set-ItResult -Skipped -Because "Windows-only test" }
         # Windows-only test implementation
     }
     
-    It "Property15: Version mismatch detection" -Tag "Property15", "WindowsOnly" {
+    It "Property15: Version mismatch detection" {
         if ($env:OS -ne "Windows_NT") { Set-ItResult -Skipped -Because "Windows-only test" }
         # Windows-only test implementation
     }
