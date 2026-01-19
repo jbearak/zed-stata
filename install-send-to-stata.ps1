@@ -88,29 +88,45 @@ function Install-Tasks {
 
 function Install-Keybindings {
     $keymapPath = "$env:APPDATA\Zed\keymap.json"
-    $keybindings = @()
+    $existing = $null
     if (Test-Path $keymapPath) {
-        $keybindings = Get-Content $keymapPath | ConvertFrom-Json
+        try { $existing = Get-Content $keymapPath -Raw | ConvertFrom-Json } catch { $existing = $null }
     }
-    
-    $keybindings = $keybindings | Where-Object { $_.context -ne "Editor && extension == do" }
-    
-    $newKeybindings = @(
-        @{
-            context = "Editor && extension == do"
-            bindings = @{
-                "ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Send Statement" }))
-                "shift-ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Send File" }))
-                "alt-ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Include Statement" }))
-                "alt-shift-ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Include File" }))
-                "shift-enter" = @("workspace::SendKeystrokes", "ctrl-c ctrl-` ctrl-v enter")
-                "alt-enter" = @("workspace::SendKeystrokes", "home shift-end ctrl-c ctrl-` ctrl-v enter")
-            }
+
+    # Normalize to an array
+    $keybindings = @()
+    if ($existing) {
+        if ($existing -is [System.Collections.IEnumerable] -and -not ($existing -is [string])) {
+            $keybindings = @($existing)
+        } else {
+            $keybindings = @($existing)
         }
-    )
-    
-    $keybindings += $newKeybindings
-    $keybindings | ConvertTo-Json -Depth 10 | Out-File $keymapPath -Encoding UTF8
+    }
+
+    # Remove any prior Stata block by context value (old or new form)
+    $keybindings = $keybindings | Where-Object { -not ($_.PSObject.Properties.Name -contains 'context' -and ($_.context -eq "Editor && extension == 'do'" -or $_.context -eq "Editor && extension == do")) }
+
+    $newBlock = @{
+        context = "Editor && extension == 'do'"
+        bindings = @{
+            "ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Send Statement" }))
+            "shift-ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Send File" }))
+            "alt-ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Include Statement" }))
+            "alt-shift-ctrl-enter" = @("workspace::Save", @("task::Spawn", @{ task_name = "Stata: Include File" }))
+            # Use literal backtick (``) so it survives PowerShell parsing
+            "shift-enter" = @("workspace::SendKeystrokes", "ctrl-c ctrl-`` ctrl-v enter")
+            "alt-enter" = @("workspace::SendKeystrokes", "home shift-end ctrl-c ctrl-`` ctrl-v enter")
+        }
+    }
+
+    $result = @()
+    if ($keybindings) { $result += $keybindings }
+    $result += $newBlock
+
+    $json = ConvertTo-Json -InputObject $result -Depth 10
+    # Write UTF-8 without BOM so Zed doesn’t choke on BOM
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($keymapPath, $json, $utf8NoBom)
 }
 
 function Find-StataInstallation {
