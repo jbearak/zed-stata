@@ -213,7 +213,7 @@ function Invoke-AutomationRegistrationCheck {
     
     if ($Force -or !$regStatus.IsRegistered) {
         if (!$regStatus.IsRegistered) {
-            $message = "Stata automation is not registered. Register now to enable send-to-Stata functionality?"
+            $message = "We couldn't confirm whether Stata automation is registered. Register now to enable Send-to-Stata functionality?"
         } else {
             $message = "Force registration requested. Re-register Stata automation?"
         }

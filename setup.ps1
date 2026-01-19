@@ -44,6 +44,17 @@ function Invoke-ElevatedProcess {
     }
     return $proc.ExitCode
 }
+function Get-HostArch {
+    try {
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+        if ($arch) { return $arch.ToString() }
+    } catch { }
+    $pa = $env:PROCESSOR_ARCHITECTURE
+    $pi = $env:PROCESSOR_IDENTIFIER
+    if ($pa -match 'ARM64' -or $pi -match '(?i)ARM') { return 'Arm64' }
+    if ([Environment]::Is64BitProcess) { return 'X64' }
+    return 'X86'
+}
 function Ensure-Arm64MsvcLibs {
     param([string]$InstallPath)
     if ([string]::IsNullOrWhiteSpace($InstallPath)) { return }
@@ -178,7 +189,7 @@ function Invoke-WithMsvc {
                     throw "vcvarsall.bat not found under $installPath"
                 }
 
-                $hostArch = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+                $hostArch = Get-HostArch
                 $preferArm64 = $false
                 $rustHost = $null
                 if (Test-CommandExists -Name rustc) {
@@ -435,6 +446,7 @@ function Install-SendToStata {
 
     $args = @()
     if ($RegisterAutomation) { $args += '-RegisterAutomation' }
+    if ($Yes) { $args += '-RegisterAutomation' }
     if ($SkipAutomationCheck) { $args += '-SkipAutomationCheck' }
 
     Write-Host "Installing send-to-stata integration..."
