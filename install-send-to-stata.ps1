@@ -43,10 +43,14 @@ function Install-Tasks {
     
     $tasks = $tasks | Where-Object { !$_.label.StartsWith("Stata:") }
     
+    # Task commands use PowerShell to check ZED_SELECTED_TEXT and pipe it if present
+    # This mirrors the macOS approach of using python3 to read the env var safely
+    $scriptPath = "$env:APPDATA\Zed\stata\send-to-stata.ps1"
+    
     $newTasks = @(
         @{
             label = "Stata: Send Statement"
-            command = "powershell.exe -sta -ExecutionPolicy Bypass -File `"$env:APPDATA\Zed\stata\send-to-stata.ps1`" -Statement -Stdin -File `"`$ZED_FILE`" -Row `$ZED_ROW"
+            command = "powershell.exe -sta -NoProfile -ExecutionPolicy Bypass -Command `"if (`$env:ZED_SELECTED_TEXT) { `$env:ZED_SELECTED_TEXT | & '$scriptPath' -Statement -Stdin -File '`$ZED_FILE' } else { & '$scriptPath' -Statement -File '`$ZED_FILE' -Row `$ZED_ROW }`""
             use_new_terminal = $false
             allow_concurrent_runs = $true
             reveal = "never"
@@ -54,7 +58,7 @@ function Install-Tasks {
         },
         @{
             label = "Stata: Send File"
-            command = "powershell.exe -sta -ExecutionPolicy Bypass -File `"$env:APPDATA\Zed\stata\send-to-stata.ps1`" -FileMode -File `"`$ZED_FILE`""
+            command = "powershell.exe -sta -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -FileMode -File `"`$ZED_FILE`""
             use_new_terminal = $false
             allow_concurrent_runs = $true
             reveal = "never"
@@ -62,7 +66,7 @@ function Install-Tasks {
         },
         @{
             label = "Stata: Include Statement"
-            command = "powershell.exe -sta -ExecutionPolicy Bypass -File `"$env:APPDATA\Zed\stata\send-to-stata.ps1`" -Statement -Include -Stdin -File `"`$ZED_FILE`" -Row `$ZED_ROW"
+            command = "powershell.exe -sta -NoProfile -ExecutionPolicy Bypass -Command `"if (`$env:ZED_SELECTED_TEXT) { `$env:ZED_SELECTED_TEXT | & '$scriptPath' -Statement -Include -Stdin -File '`$ZED_FILE' } else { & '$scriptPath' -Statement -Include -File '`$ZED_FILE' -Row `$ZED_ROW }`""
             use_new_terminal = $false
             allow_concurrent_runs = $true
             reveal = "never"
@@ -70,7 +74,7 @@ function Install-Tasks {
         },
         @{
             label = "Stata: Include File"
-            command = "powershell.exe -sta -ExecutionPolicy Bypass -File `"$env:APPDATA\Zed\stata\send-to-stata.ps1`" -FileMode -Include -File `"`$ZED_FILE`""
+            command = "powershell.exe -sta -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -FileMode -Include -File `"`$ZED_FILE`""
             use_new_terminal = $false
             allow_concurrent_runs = $true
             reveal = "never"
