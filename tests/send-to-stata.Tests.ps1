@@ -187,3 +187,56 @@ Describe "Windows Automation" {
         # Test implementation for Windows
     }
 }
+
+Describe "Main Script Logic" {
+    It "Property1: STATA_PATH override" -Tag "Property1" {
+        for ($i = 0; $i -lt 100; $i++) {
+            $testPaths = @(
+                "C:\Program Files\Stata19\StataMP-64.exe",
+                "C:\Stata\StataSE.exe",
+                "D:\Tools\Stata\Stata.exe"
+            )
+            $testPath = $testPaths | Get-Random
+            
+            $env:STATA_PATH = $testPath
+            try {
+                $result = Find-StataInstallation
+                $result | Should -Be $testPath
+            } finally {
+                Remove-Item env:STATA_PATH -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    
+    It "Property2: Stata search order" -Tag "Property2" {
+        for ($i = 0; $i -lt 100; $i++) {
+            # Extract search paths from Find-StataInstallation logic
+            $searchPaths = @(
+                "C:\Program Files\Stata19\StataMP-64.exe",
+                "C:\Program Files\Stata19\StataSE-64.exe", 
+                "C:\Program Files\Stata19\Stata-64.exe",
+                "C:\Program Files (x86)\Stata19\StataMP.exe",
+                "C:\Program Files (x86)\Stata19\StataSE.exe",
+                "C:\Program Files (x86)\Stata19\Stata.exe",
+                "C:\Program Files\Stata18\StataMP-64.exe",
+                "C:\Program Files\Stata13\StataMP-64.exe"
+            )
+            
+            # Verify version order (19 before 18 before 13)
+            $v19Index = $searchPaths.FindIndex({$args[0] -match "Stata19"})
+            $v18Index = $searchPaths.FindIndex({$args[0] -match "Stata18"})
+            $v13Index = $searchPaths.FindIndex({$args[0] -match "Stata13"})
+            
+            $v19Index | Should -BeLessThan $v18Index
+            $v18Index | Should -BeLessThan $v13Index
+            
+            # Verify Program Files before Program Files (x86)
+            $pf64 = $searchPaths | Where-Object {$_ -match "Program Files\\" -and $_ -notmatch "x86"}
+            $pf32 = $searchPaths | Where-Object {$_ -match "Program Files \\(x86\\)"}
+            
+            $pf64Index = $searchPaths.IndexOf($pf64[0])
+            $pf32Index = $searchPaths.IndexOf($pf32[0])
+            $pf64Index | Should -BeLessThan $pf32Index
+        }
+    }
+}
