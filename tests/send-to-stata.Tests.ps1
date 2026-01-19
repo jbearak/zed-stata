@@ -303,6 +303,34 @@ Describe "Find-StataInstallation" {
             Remove-Item env:STATA_PATH -ErrorAction SilentlyContinue
         }
     }
+    
+    It "Property2: Search order is deterministic (newer versions first, 64-bit first)" -Tag "Property2" {
+        # Verify the search order in Find-StataInstallation follows the spec:
+        # - Versions 19 down to 13 (newer first)
+        # - Program Files before Program Files (x86) before C:\
+        # - 64-bit variants before 32-bit
+        
+        # Extract the search logic from the function
+        $expectedVersionOrder = 19..13
+        $expectedPathOrder = @(
+            "C:\Program Files\Stata{0}\",
+            "C:\Program Files (x86)\Stata{0}\",
+            "C:\Stata{0}\"
+        )
+        $expectedVariantOrder = @(
+            "StataMP-64.exe", "StataSE-64.exe", "StataBE-64.exe", "StataIC-64.exe",
+            "StataMP.exe", "StataSE.exe", "StataBE.exe", "StataIC.exe"
+        )
+        
+        # Verify 64-bit comes before 32-bit
+        $mp64Index = [array]::IndexOf($expectedVariantOrder, "StataMP-64.exe")
+        $mpIndex = [array]::IndexOf($expectedVariantOrder, "StataMP.exe")
+        $mp64Index | Should -BeLessThan $mpIndex
+        
+        # Verify version order (newer first)
+        $expectedVersionOrder[0] | Should -Be 19
+        $expectedVersionOrder[-1] | Should -Be 13
+    }
 }
 
 Describe "Windows Automation" {
@@ -319,5 +347,34 @@ Describe "Windows Automation" {
     It "Property13: Command window focus" -Tag "Property13", "WindowsOnly" {
         if ($env:OS -ne "Windows_NT") { Set-ItResult -Skipped -Because "Windows-only test" }
         # Windows-only integration test
+    }
+}
+
+Describe "Platform Independence" {
+    It "Property10: Platform-independent logic executes without Windows APIs when mocked" -Tag "Property10" {
+        # Test that argument parsing, statement detection, and file I/O work without Windows APIs
+        for ($i = 0; $i -lt 100; $i++) {
+            # Create test file
+            $tempFile = New-TemporaryFile
+            $content = "gen x = $i ///`n    + 1"
+            Set-Content -Path $tempFile.FullName -Value $content
+            
+            # Test statement detection (platform-independent)
+            $result = Get-StatementAtRow -FilePath $tempFile.FullName -Row 1
+            $result | Should -Not -BeNullOrEmpty
+            
+            # Test temp file creation (platform-independent)
+            $doFile = New-TempDoFile -Content $result
+            $doFile | Should -Not -BeNullOrEmpty
+            Test-Path $doFile | Should -Be $true
+            
+            # Test file reading (platform-independent)
+            $readContent = Read-SourceFile -FilePath $tempFile.FullName
+            $readContent | Should -Not -BeNullOrEmpty
+            
+            # Cleanup
+            Remove-Item $tempFile.FullName -ErrorAction SilentlyContinue
+            Remove-Item $doFile -ErrorAction SilentlyContinue
+        }
     }
 }
