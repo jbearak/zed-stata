@@ -465,6 +465,30 @@ function Ensure-WasmTarget {
     }
 }
 
+function Download-TreeSitterGrammar {
+    # Zed cannot compile tree-sitter grammars to WASM on Windows, so we download
+    # a pre-built WASM from the tree-sitter-stata releases.
+
+    $grammarUrl = "https://github.com/jbearak/tree-sitter-stata/releases/download/v0.1.0/tree-sitter-stata.wasm"
+
+    $grammarsDir = Join-Path $PSScriptRoot 'grammars'
+    if (-not (Test-Path $grammarsDir)) {
+        New-Item -ItemType Directory -Path $grammarsDir -Force | Out-Null
+    }
+
+    $destWasm = Join-Path $grammarsDir 'stata.wasm'
+
+    Write-Host "Downloading pre-built tree-sitter-stata grammar..."
+    Invoke-WebRequest -Uri $grammarUrl -OutFile $destWasm
+
+    if (-not (Test-Path $destWasm)) {
+        throw "Failed to download grammar WASM"
+    }
+
+    $size = (Get-Item $destWasm).Length
+    Write-Host "Downloaded grammar: grammars\stata.wasm ($size bytes)" -ForegroundColor Green
+}
+
 function Build-Extension {
     Assert-Command -Name cargo -Hint "Install Rust (https://rustup.rs/) and ensure 'cargo' is on your PATH."
     Ensure-WasmTarget
@@ -485,6 +509,9 @@ function Build-Extension {
 
     $size = (Get-Item $destWasm).Length
     Write-Host "Wrote extension.wasm ($size bytes)"
+
+    # Download pre-built tree-sitter grammar WASM (Zed can't compile grammars on Windows)
+    Download-TreeSitterGrammar
 }
 
 function Install-ZedExtension {
@@ -508,6 +535,7 @@ function Install-ZedExtension {
     $itemsToCopy = @(
         'extension.toml',
         'extension.wasm',
+        'grammars',
         'languages',
         'LICENSE',
         'README.md'
