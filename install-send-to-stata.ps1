@@ -153,6 +153,10 @@ function Test-StataAutomationRegistered {
         $clsid = [Microsoft.Win32.Registry]::GetValue($regPath, "", $null)
         if ($clsid) {
             $serverPath = [Microsoft.Win32.Registry]::GetValue("HKEY_CLASSES_ROOT\CLSID\$clsid\LocalServer32", "", $null)
+            # LocalServer32 may include arguments like "/Automation", strip them
+            if ($serverPath) {
+                $serverPath = ($serverPath -split ' /')[0].Trim('"')
+            }
             return @{ IsRegistered = $true; RegisteredPath = $serverPath }
         }
     } catch {}
