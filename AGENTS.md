@@ -197,6 +197,16 @@ The checksum ensures the two scripts stay in sync and detects accidental mismatc
 
 If you forget to update the checksum, curl-pipe installations will fail with a checksum mismatch error.
 
+## Updating send-to-stata.ps1 checksum on Windows
+
+Use `update-checksum.ps1` (PowerShell 5+):
+
+1. Run `pwsh -File update-checksum.ps1` from repo root.
+2. It recalculates SHA-256 for `send-to-stata.ps1`, replaces `$expectedChecksum` in `install-send-to-stata.ps1`, stages, and auto-commits with the required co-author line.
+3. Use `-DryRun` to see the new hash without modifying files.
+
+Note: The script commits automatically; no additional git steps are needed unless you want to amend the message.
+
 ## Jupyter Stata Kernel Variants
 
 The `install-jupyter-stata.sh` installer creates two Jupyter kernels:
