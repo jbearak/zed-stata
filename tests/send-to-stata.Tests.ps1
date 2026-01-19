@@ -122,7 +122,7 @@ Describe "Get-StatementAtRow" {
     }
     
     It "Property3: Multi-line statement detection" -Tag "Property3" {
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 100; $i++) {
             $tempFile = New-TemporaryFile
             
             # Create a simple multi-line statement
@@ -151,7 +151,7 @@ Describe "Get-StatementAtRow" {
 
 Describe "File Operations" {
     It "Property4: Stdin content round-trip" -Tag "Property4" {
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 100; $i++) {
             # Generate random text with compound strings
             $parts = @()
             $numParts = Get-Random -Minimum 1 -Maximum 5
@@ -179,7 +179,7 @@ Describe "File Operations" {
     }
     
     It "Property5: File content round-trip" -Tag "Property5" {
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 100; $i++) {
             # Create source file with random content
             $sourceFile = New-TemporaryFile
             $content = @()
@@ -212,7 +212,7 @@ Describe "File Operations" {
     
     It "Property7: Temp file characteristics" -Tag "Property7" {
         $createdFiles = @()
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 100; $i++) {
             $content = "test content $i"
             $tempFile = New-TempDoFile -Content $content
             $createdFiles += $tempFile
@@ -238,7 +238,7 @@ Describe "File Operations" {
             if ($Include) { return "include `"$Path`"" } else { return "do `"$Path`"" }
         }
         
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 100; $i++) {
             $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "test_$(Get-Random).do")
             $includeMode = (Get-Random -Maximum 2) -eq 1
             
@@ -277,7 +277,7 @@ Describe "New-TempDoFile" {
 
 Describe "Find-StataInstallation" {
     It "Property1: Returns STATA_PATH when set" -Tag "Property1" {
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 100; $i++) {
             $testPaths = @(
                 "C:\Program Files\Stata19\StataMP-64.exe",
                 "C:\Stata\StataSE.exe",

@@ -77,12 +77,12 @@ public class User32 {
 
 # Parameter validation
 if ($Statement -and $FileMode) {
-    Write-Error "Statement and FileMode are mutually exclusive"
+    Write-Error "Error: Cannot specify both -Statement and -FileMode"
     exit $EXIT_INVALID_ARGS
 }
 
 if (-not $File) {
-    Write-Error "File parameter is required"
+    Write-Error "Error: -File parameter is required"
     exit $EXIT_INVALID_ARGS
 }
 
