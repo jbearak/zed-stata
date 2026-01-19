@@ -205,10 +205,12 @@ function Send-ToStata {
     
     $stataWindow = Find-StataWindow
     if (-not $stataWindow) {
+        Write-Error "Error: No running Stata instance found. Start Stata before sending code"
         exit $EXIT_STATA_NOT_FOUND
     }
     
     if (-not (Invoke-FocusAcquisition -WindowHandle $stataWindow.MainWindowHandle)) {
+        Write-Error "Error: Failed to activate Stata window. Stata may be running as Administrator"
         exit $EXIT_SENDKEYS_FAIL
     }
     
@@ -223,3 +225,28 @@ function Send-ToStata {
     
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
 }
+
+# Main execution
+if (-not (Test-Path $File)) {
+    Write-Error "Error: Cannot read file: $File"
+    exit $EXIT_FILE_NOT_FOUND
+}
+
+if ($Stdin) {
+    $content = Read-StdinContent
+} elseif (-not $Stdin -and $Row) {
+    $content = Get-StatementAtRow -FilePath $File -Row $Row
+} elseif ($FileMode) {
+    $content = Read-SourceFile -FilePath $File
+} else {
+    $content = Get-StatementAtRow -FilePath $File -Row $Row
+}
+
+$tempFile = New-TempDoFile -Content $content
+if (-not $tempFile) {
+    Write-Error "Error: Cannot create temp file"
+    exit $EXIT_TEMP_FILE_FAIL
+}
+
+Send-ToStata -TempFilePath $tempFile -UseInclude:$Include
+exit $EXIT_SUCCESS
