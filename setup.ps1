@@ -3,15 +3,6 @@ param(
     [switch]$SkipExtensionInstall,
     [switch]$SkipSendToStata,
     [switch]$Uninstall,
-
-    # If set, setup.ps1 will attempt to install missing build dependencies.
-    # This is most useful on a fresh Windows machine.
-    [switch]$InstallDependencies,
-
-    # If set alongside -InstallDependencies, setup.ps1 may install the Visual C++ build tools
-    # (large download) when a C toolchain is missing.
-    [switch]$InstallMSVCBuildTools,
-    [switch]$InstallWasiSdk,
     [switch]$Yes,
 
     [string]$ZedExtensionsDir = "$(Join-Path $env:APPDATA 'Zed\extensions\installed')",
@@ -95,7 +86,7 @@ function Report-MsvcInstructions {
     Write-Host "  3) Include component: Microsoft.VisualStudio.Component.VC.Tools.ARM64 (for ARM64 host)."
     Write-Host ""
     Write-Host "After installation, close this window, open a fresh terminal, and rerun:"
-    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup.ps1 -Yes -InstallDependencies -InstallMSVCBuildTools"
+    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup.ps1 -Yes"
     throw "MSVC toolchain not detected; manual install required."
 }
 
@@ -141,7 +132,7 @@ function Install-RustupIfMissing {
         return
     }
 
-    throw "cargo is required to build the extension, but was not found. Install Rust via rustup (https://rustup.rs/) or install winget and re-run with -InstallDependencies."
+    throw "cargo is required to build the extension, but was not found. Install Rust via rustup (https://rustup.rs/) or install winget and re-run."
 }
 
 function Test-MsvcToolchainPresent {
@@ -257,7 +248,7 @@ function Invoke-WithMsvc {
     }
 
     if (-not $msvcReady) {
-        throw "MSVC build tools (cl.exe/link.exe) were not found. Install the 'Desktop development with C++' workload or rerun setup.ps1 with -InstallDependencies -InstallMSVCBuildTools to install via winget."
+        throw "MSVC build tools (cl.exe/link.exe) were not found. Install the 'Desktop development with C++' workload or rerun setup.ps1 to install via winget."
     }
 
     Invoke-Command -ScriptBlock $Script
@@ -282,31 +273,21 @@ function Install-MSVCBuildToolsViaWinget {
     } elseif ($installExit -ne 0) {
         throw "winget failed to install Visual Studio Build Tools (exit code $installExit)."
     }
-    
+
     # After installation, we need to ensure the environment is updated or warn the user.
     Write-Host "Installation successful. If cl.exe is still not on PATH, restart your terminal."
 }
 
-function Install-MSVCBuildToolsIfRequested {
-    if (-not $InstallMSVCBuildTools) { return }
-    if (Test-MsvcToolchainPresent) { return }
-    if ($script:MsvcInstallAttempted) { return }
-    $script:MsvcInstallAttempted = $true
-    Install-MSVCBuildToolsViaWinget
-}
-
 function Ensure-BuildDependencies {
-    if ($InstallMSVCBuildTools -and -not $InstallDependencies) {
-        Write-Warning "-InstallMSVCBuildTools has no effect unless -InstallDependencies is also specified. Re-run with both switches to auto-install the toolchain."
-    }
+    # Check and prompt for Rust/cargo
+    Install-RustupIfMissing
 
+    # Check and prompt for MSVC build tools
     if (-not (Test-MsvcToolchainPresent)) {
         Write-Host "MSVC build tools (cl.exe/link.exe) are required to build the extension."
         # If tools are installed but not on PATH, try importing MSVC env once before prompting.
-        $imported = $false
         try {
             Invoke-WithMsvc -Script { Write-Host "MSVC environment imported for current session (pre-install check)." }
-            $imported = $true
         } catch {
             Write-Warning "MSVC env import attempt failed: $($_.Exception.Message)"
         }
@@ -331,18 +312,8 @@ function Ensure-BuildDependencies {
         }
     }
 
-    # Only attempt Rust-related installs when explicitly requested.
-    if (-not $InstallDependencies) {
-        return
-    }
-
-    Install-RustupIfMissing
-
-    if (-not (Test-MsvcToolchainPresent) -and $InstallMSVCBuildTools) {
-        Install-MSVCBuildToolsIfRequested
-    }
-
-    Install-WasiSdkIfRequested
+    # Check and prompt for WASI SDK
+    Ensure-WasiSdk
 }
 
 function Get-GitHubLatestAssetUrl {
@@ -447,12 +418,52 @@ function Report-WasiSdkInstructions {
     $msg | ForEach-Object { Write-Host $_ }
 }
 
-function Install-WasiSdkIfRequested {
-    if (-not $InstallWasiSdk) { return }
+function Ensure-WasiSdk {
     if (Test-WasiSdkPresent) { return }
 
-    Report-WasiSdkInstructions
-    Write-Warning "Continuing without WASI SDK. Dev extension installation inside Zed may fail until it is installed."
+    $installer = Join-Path $PSScriptRoot 'install-wasi-tools.ps1'
+    if (-not (Test-Path $installer)) {
+        Write-Warning "install-wasi-tools.ps1 not found; falling back to manual instructions."
+        Report-WasiSdkInstructions
+        Write-Warning "Continuing without WASI SDK. Dev extension installation inside Zed may fail until it is installed."
+        return
+    }
+
+    if (-not (Confirm-Install -Prompt "WASI SDK is not installed. Install WASI compilation tools now? (requires admin)")) {
+        Report-WasiSdkInstructions
+        Write-Warning "Continuing without WASI SDK. Dev extension installation inside Zed may fail until it is installed."
+        return
+    }
+
+    Write-Host "Launching WASI tools installer (requires administrator privileges)..."
+    if (Test-Administrator) {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+        $installExit = $LASTEXITCODE
+    } else {
+        $installExit = Invoke-ElevatedProcess -FilePath "powershell.exe" -ArgumentString "-NoProfile -ExecutionPolicy Bypass -File `"$installer`""
+    }
+
+    if ($installExit -ne 0) {
+        Write-Warning "install-wasi-tools.ps1 exited with code $installExit"
+        Report-WasiSdkInstructions
+        Write-Warning "Continuing without WASI SDK. Dev extension installation inside Zed may fail until it is installed."
+        return
+    }
+
+    # Refresh PATH from machine environment
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $env:PATH = "$machinePath;$userPath"
+
+    # Check for WASI SDK path set by installer
+    $wasiSdkPath = "C:\wasi-sdk"
+    if (Test-Path (Join-Path $wasiSdkPath 'bin\clang.exe')) {
+        $env:WASI_SDK_PATH = $wasiSdkPath
+        Write-Host "WASI SDK installed successfully at $wasiSdkPath"
+    } else {
+        Write-Warning "WASI SDK installation completed but clang.exe not found at expected location."
+        Report-WasiSdkInstructions
+    }
 }
 
 function Ensure-WasmTarget {
@@ -478,7 +489,7 @@ function Ensure-WasmTarget {
 }
 
 function Build-Extension {
-    Assert-Command -Name cargo -Hint "Install Rust (https://rustup.rs/) and ensure 'cargo' is on your PATH (or re-run setup.ps1 with -InstallDependencies)."
+    Assert-Command -Name cargo -Hint "Install Rust (https://rustup.rs/) and ensure 'cargo' is on your PATH."
     Ensure-WasmTarget
 
     Write-Host "Building Zed extension (wasm32-wasip1, release)..."
