@@ -69,13 +69,23 @@ See [SEND-TO-STATA.md](SEND-TO-STATA.md) for full documentation, configuration o
 
 Execute Stata code in Zed's built-in REPL panel using [stata_kernel](https://kylebarron.dev/stata_kernel/). This provides an interactive environment without switching to the Stata application.
 
-**Install (macOS only):**
+### macOS
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jbearak/sight-zed/main/install-jupyter-stata.sh)"
 ```
 
-**Usage:**
+### Windows
+
+Requires PowerShell 5.0+ (included with Windows 10/11).
+
+```powershell
+irm https://raw.githubusercontent.com/jbearak/sight-zed/main/install-jupyter-stata.ps1 | iex
+```
+
+**Important:** After installation, you must restart Zed for the changes to take effect. The installer adds the Jupyter virtual environment to your PATH so Zed can discover the kernels.
+
+### Usage
 1. Open a `.do` file
 2. Open the REPL panel (View → Toggle REPL)
 3. Select a kernel:
