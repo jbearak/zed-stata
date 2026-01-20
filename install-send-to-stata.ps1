@@ -5,6 +5,11 @@ param(
     [string]$ReturnFocus = ""
 )
 
+# Expected SHA-256 checksums for send-to-stata executables
+# Update these when rebuilding the executables (run update-checksum.ps1)
+$expectedChecksumArm64 = "9d5c0f95300cdfcecbd3d912601e002715df6cdbd2ec842942e7d33a66e98d02"
+$expectedChecksumX64 = "81f0b1513faa0a80eacddc3efade3d68cc3daf052215d2b00a29affaaa3f7eaa"
+
 function Get-HostArch {
     # Detect host architecture for selecting the correct binary
     try {
@@ -23,9 +28,15 @@ function Install-Executable {
         New-Item -ItemType Directory -Path $stataDir -Force | Out-Null
     }
 
-    # Select the correct binary based on architecture
+    # Select the correct binary and checksum based on architecture
     $arch = Get-HostArch
-    $exeName = if ($arch -eq 'Arm64') { "send-to-stata-arm64.exe" } else { "send-to-stata-x64.exe" }
+    if ($arch -eq 'Arm64') {
+        $exeName = "send-to-stata-arm64.exe"
+        $expectedChecksum = $expectedChecksumArm64
+    } else {
+        $exeName = "send-to-stata-x64.exe"
+        $expectedChecksum = $expectedChecksumX64
+    }
     $destExe = "$stataDir\send-to-stata.exe"
 
     # Try local file first (for development)
@@ -40,6 +51,19 @@ function Install-Executable {
         $url = "https://github.com/jbearak/sight-zed/raw/$githubRef/$exeName"
         Write-Host "Downloading $exeName from GitHub..."
         Invoke-WebRequest -Uri $url -OutFile $destExe
+
+        # Verify checksum (skip for custom refs used in testing)
+        if ($githubRef -eq "main") {
+            $actualChecksum = (Get-FileHash -Path $destExe -Algorithm SHA256).Hash.ToLower()
+            if ($actualChecksum -ne $expectedChecksum.ToLower()) {
+                Remove-Item $destExe -Force -ErrorAction SilentlyContinue
+                throw "Checksum verification failed for $exeName`nExpected: $expectedChecksum`nActual:   $actualChecksum`nThis may indicate a corrupted download or CDN caching issue. Try again in a few minutes."
+            }
+            Write-Host "Checksum verified for $exeName"
+        } else {
+            Write-Host "Skipping checksum verification (custom SIGHT_GITHUB_REF: $githubRef)"
+        }
+
         Write-Host "Downloaded send-to-stata.exe from GitHub"
     }
 }

@@ -427,15 +427,28 @@ The checksum ensures the two scripts stay in sync and detects accidental mismatc
 
 If you forget to update the checksum, curl-pipe installations will fail with a checksum mismatch error.
 
-## Updating send-to-stata.ps1 checksum on Windows
+## Updating send-to-stata executables checksum on Windows
 
-Use `update-checksum.ps1` (PowerShell 5+):
+Use `update-checksum.ps1` (PowerShell 7+):
 
-1. Run `pwsh -File update-checksum.ps1` from repo root.
-2. It recalculates SHA-256 for `send-to-stata.ps1`, replaces `$expectedChecksum` in `install-send-to-stata.ps1`, stages, and auto-commits with the required co-author line.
-3. Use `-DryRun` to see the new hash without modifying files.
+1. Rebuild the executables (see "Building the Native Executable" below)
+2. Run `pwsh -File update-checksum.ps1` from repo root
+3. It recalculates SHA-256 for both `send-to-stata-arm64.exe` and `send-to-stata-x64.exe`, updates `install-send-to-stata.ps1`, and auto-commits
+4. Use `-DryRun` to see the new hashes without modifying files
 
-Note: The script commits automatically; no additional git steps are needed unless you want to amend the message.
+The installer verifies checksums when downloading from GitHub. Verification is skipped when users specify a custom `SIGHT_GITHUB_REF` for testing branches.
+
+## Updating setup.ps1 dependency checksums
+
+Use `update-setup-checksums.ps1` (PowerShell 7+) when upstream dependencies release new versions:
+
+1. Run `pwsh -File update-setup-checksums.ps1` from repo root
+2. It downloads WASI SDK, tree-sitter-stata grammar, and Sight language server
+3. Calculates SHA-256 checksums and updates `setup.ps1`
+4. Auto-commits the changes
+5. Use `-DryRun` to see the new hashes without modifying files
+
+The checksums are verified during `setup.ps1` execution to detect corrupted downloads.
 
 ## Windows Send-to-Stata Architecture
 
@@ -456,6 +469,8 @@ cp bin/Release/net8.0-windows/win-arm64/publish/send-to-stata.exe ../send-to-sta
 ```
 
 Both binaries are committed to the repo. The installer detects architecture and copies the correct one.
+
+After rebuilding, run `pwsh -File update-checksum.ps1` to update the checksums in `install-send-to-stata.ps1`.
 
 ### Executable Parameters
 
