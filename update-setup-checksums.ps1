@@ -84,22 +84,22 @@ try {
     # Update setup.ps1
     $content = Get-Content -Path $setupPath -Raw
 
-    # Update WASI SDK checksum
-    $pattern = '(WasiSdkX64\s*=\s*")[a-f0-9]{64}(")'
+    # Update WASI SDK checksum (case-insensitive for robustness)
+    $pattern = '(?i)(WasiSdkX64\s*=\s*")[a-f0-9]{64}(")'
     if ($content -notmatch $pattern) {
         throw "WasiSdkX64 checksum not found in setup.ps1"
     }
     $updated = [regex]::Replace($content, $pattern, "`${1}$wasiSdkHash`${2}")
 
     # Update grammar checksum
-    $pattern = '(TreeSitterGrammar\s*=\s*")[a-f0-9]{64}(")'
+    $pattern = '(?i)(TreeSitterGrammar\s*=\s*")[a-f0-9]{64}(")'
     if ($updated -notmatch $pattern) {
         throw "TreeSitterGrammar checksum not found in setup.ps1"
     }
     $updated = [regex]::Replace($updated, $pattern, "`${1}$grammarHash`${2}")
 
     # Update server checksum
-    $pattern = '(SightServer\s*=\s*")[a-f0-9]{64}(")'
+    $pattern = '(?i)(SightServer\s*=\s*")[a-f0-9]{64}(")'
     if ($updated -notmatch $pattern) {
         throw "SightServer checksum not found in setup.ps1"
     }
