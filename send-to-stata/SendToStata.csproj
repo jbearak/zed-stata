@@ -19,4 +19,11 @@
     <InternalsVisibleTo Include="SendToStata.Tests" />
   </ItemGroup>
 
+  <!-- Prevent test sources under SendToStata.Tests/ from being picked up by this executable project -->
+  <ItemGroup>
+    <Compile Remove="SendToStata.Tests\**\*.cs" />
+    <None Remove="SendToStata.Tests\**\*" />
+    <EmbeddedResource Remove="SendToStata.Tests\**\*" />
+  </ItemGroup>
+
 </Project>

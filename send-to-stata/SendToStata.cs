@@ -7,6 +7,51 @@ namespace SendToStata;
 
 internal static partial class Program
 {
+    private static readonly bool _logEnabled =
+        string.Equals(Environment.GetEnvironmentVariable("SEND_TO_STATA_LOG"), "1", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Environment.GetEnvironmentVariable("SEND_TO_STATA_LOG"), "true", StringComparison.OrdinalIgnoreCase);
+
+    private static void Log(string message)
+    {
+        if (!_logEnabled) return;
+        Console.Error.WriteLine($"[send-to-stata] {message}");
+    }
+
+    private static string FormatHwnd(IntPtr hWnd)
+        => hWnd == IntPtr.Zero ? "0x0" : $"0x{hWnd.ToInt64():X}";
+
+    private static string? TryGetProcessNameForWindow(IntPtr hWnd)
+    {
+        try
+        {
+            if (hWnd == IntPtr.Zero) return null;
+            _ = GetWindowThreadProcessId(hWnd, out uint pid);
+            if (pid == 0) return null;
+            using var proc = Process.GetProcessById((int)pid);
+            return proc.ProcessName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string DescribeWindow(IntPtr hWnd)
+    {
+        try
+        {
+            if (hWnd == IntPtr.Zero) return "HWND=0x0";
+            var sb = new StringBuilder(512);
+            _ = GetWindowText(hWnd, sb, sb.Capacity);
+            var title = sb.ToString();
+            var proc = TryGetProcessNameForWindow(hWnd) ?? "?";
+            return $"HWND={FormatHwnd(hWnd)} Proc={proc} Title=\"{title}\"";
+        }
+        catch
+        {
+            return $"HWND={FormatHwnd(hWnd)}";
+        }
+    }
     // Exit codes
     private const int EXIT_SUCCESS = 0;
     private const int EXIT_INVALID_ARGS = 1;
@@ -29,6 +74,14 @@ internal static partial class Program
 
     [LibraryImport("user32.dll")]
     private static partial IntPtr GetForegroundWindow();
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    // NOTE: StringBuilder marshalling is not supported by source-generated P/Invokes (SYSLIB1051).
+    // Use the classic DllImport for GetWindowText instead.
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -125,7 +178,7 @@ internal static partial class Program
     public static ParsedArguments ParseArguments(string[] args)
     {
         var result = new ParsedArguments();
-        
+
         for (int i = 0; i < args.Length; i++)
         {
             string arg = args[i].ToLowerInvariant();
@@ -168,7 +221,7 @@ internal static partial class Program
                     break;
             }
         }
-        
+
         return result;
     }
 
@@ -300,31 +353,55 @@ internal static partial class Program
     /// </summary>
     private static Process? FindStataWindow()
     {
-        // All possible Stata process names (regular and Now variants)
-        string[] processNames = ["StataMP", "StataSE", "StataBE", "StataIC", "Stata",
-                                 "StataNowMP", "StataNowSE", "StataNowBE", "StataNowIC", "StataNow"];
+        // All possible Stata process names (regular, 64-bit, and Now variants)
+        //
+        // On Windows, the actual process name is the executable name without ".exe".
+        // For Stata 64-bit installs, Task Manager commonly shows e.g. "StataMP-64.exe",
+        // which corresponds to a process name of "StataMP-64".
+        //
+        // IMPORTANT: This list must include both legacy names (no suffix) and "-64" names.
+        string[] processNames = [
+            "StataMP", "StataSE", "StataBE", "StataIC", "Stata",
+            "StataMP-64", "StataSE-64", "StataBE-64", "StataIC-64", "Stata-64",
+            "StataNowMP", "StataNowSE", "StataNowBE", "StataNowIC", "StataNow",
+            "StataNowMP-64", "StataNowSE-64", "StataNowBE-64", "StataNowIC-64", "StataNow-64"
+        ];
         var titleRegex = StataTitleRegex();
+
+        Log($"FindStataWindow: searching process names: {string.Join(", ", processNames)}");
 
         foreach (var name in processNames)
         {
             try
             {
                 var processes = Process.GetProcessesByName(name);
+                Log($"FindStataWindow: found {processes.Length} process(es) for name=\"{name}\"");
+
                 foreach (var proc in processes)
                 {
                     try
                     {
-                        if (!string.IsNullOrEmpty(proc.MainWindowTitle) &&
-                            titleRegex.IsMatch(proc.MainWindowTitle) &&
-                            !proc.MainWindowTitle.Contains("Viewer"))
+                        var title = proc.MainWindowTitle ?? "";
+                        var hwnd = proc.MainWindowHandle;
+
+                        Log($"FindStataWindow: candidate PID={proc.Id} Name=\"{proc.ProcessName}\" MainWindowHandle={FormatHwnd(hwnd)} Title=\"{title}\"");
+
+                        // Prefer a real main window handle when possible; some processes may report a title but no HWND.
+                        if (hwnd != IntPtr.Zero &&
+                            !string.IsNullOrEmpty(title) &&
+                            titleRegex.IsMatch(title) &&
+                            !title.Contains("Viewer", StringComparison.OrdinalIgnoreCase))
                         {
+                            Log($"FindStataWindow: selected PID={proc.Id} Name=\"{proc.ProcessName}\"");
                             return proc; // Caller is responsible for disposal
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Log($"FindStataWindow: exception inspecting PID={proc.Id}: {ex.GetType().Name}: {ex.Message}");
                         // Process may have exited, continue searching
                     }
+
                     proc.Dispose();
                 }
             }
@@ -334,6 +411,7 @@ internal static partial class Program
             }
         }
 
+        Log("FindStataWindow: no matching Stata main window found.");
         return null;
     }
 
@@ -354,7 +432,12 @@ internal static partial class Program
                 {
                     if (proc.MainWindowHandle != IntPtr.Zero)
                     {
+                        Log($"FindZedWindow: Found Zed process (PID={proc.Id}) MainWindowHandle={FormatHwnd(proc.MainWindowHandle)}");
                         return proc.MainWindowHandle;
+                    }
+                    else
+                    {
+                        Log($"FindZedWindow: Zed process (PID={proc.Id}) has MainWindowHandle=0x0 (no main window yet?)");
                     }
                 }
                 finally
@@ -362,9 +445,12 @@ internal static partial class Program
                     proc.Dispose();
                 }
             }
+
+            Log("FindZedWindow: No Zed processes with a non-zero MainWindowHandle found.");
         }
-        catch
+        catch (Exception ex)
         {
+            Log($"FindZedWindow: Exception: {ex.GetType().Name}: {ex.Message}");
             // Ignore errors
         }
 
@@ -377,26 +463,44 @@ internal static partial class Program
     /// </summary>
     private static bool AcquireFocus(IntPtr windowHandle, int maxRetries = 3)
     {
+        if (windowHandle == IntPtr.Zero)
+        {
+            Log("AcquireFocus: windowHandle is 0x0; cannot focus.");
+            return false;
+        }
+
+        Log($"AcquireFocus: target={DescribeWindow(windowHandle)} maxRetries={maxRetries}");
+
         // Restore if minimized
         if (IsIconic(windowHandle))
         {
+            Log("AcquireFocus: target is minimized; restoring.");
             ShowWindow(windowHandle, SW_RESTORE);
             Thread.Sleep(_winPause);
         }
 
         for (int i = 1; i <= maxRetries; i++)
         {
-            // Alt key trick to bypass focus-stealing prevention
-            keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);           // Alt down
-            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero); // Alt up
+            var before = GetForegroundWindow();
+            Log($"AcquireFocus: attempt {i}/{maxRetries}; beforeForeground={DescribeWindow(before)}");
 
-            SetForegroundWindow(windowHandle);
+            // Alt key trick to bypass focus-stealing prevention
+            keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);                // Alt down
+            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);  // Alt up
+
+            var setOk = SetForegroundWindow(windowHandle);
             Thread.Sleep(_winPause * i);
 
-            if (GetForegroundWindow() == windowHandle)
+            var after = GetForegroundWindow();
+            var focused = after == windowHandle;
+
+            Log($"AcquireFocus: attempt {i}; SetForegroundWindow={setOk}; afterForeground={DescribeWindow(after)}; success={focused}");
+
+            if (focused)
                 return true;
         }
 
+        Log($"AcquireFocus: FAILED to focus target={DescribeWindow(windowHandle)} after {maxRetries} attempts.");
         return false;
     }
 
@@ -468,24 +572,33 @@ internal static partial class Program
     /// </summary>
     private static int SendToStataWindow(string tempFilePath, bool useInclude, bool returnFocus)
     {
+        Log($"SendToStataWindow: tempFilePath=\"{tempFilePath}\" useInclude={useInclude} returnFocus={returnFocus}");
+
         // Remember the current foreground window so we can return focus if requested
         IntPtr originalWindow = returnFocus ? GetForegroundWindow() : IntPtr.Zero;
+        if (returnFocus)
+        {
+            Log($"SendToStataWindow: captured originalForeground={DescribeWindow(originalWindow)}");
+        }
 
         // Find Stata window
         using var stataProcess = FindStataWindow();
         if (stataProcess == null)
         {
             Console.Error.WriteLine("Error: No running Stata instance found. Start Stata before sending code.");
+            Log("SendToStataWindow: FindStataWindow returned null.");
             return EXIT_STATA_NOT_FOUND;
         }
 
         IntPtr windowHandle = stataProcess.MainWindowHandle;
+        Log($"SendToStataWindow: Stata PID={stataProcess.Id} MainWindowHandle={FormatHwnd(windowHandle)}");
 
         // Acquire focus
         if (!AcquireFocus(windowHandle))
         {
             Console.Error.WriteLine("Error: Failed to activate Stata window after 3 attempts. " +
                 "Focus-stealing prevention may be blocking SetForegroundWindow, or Stata may be running as Administrator.");
+            Log($"SendToStataWindow: failed to focus Stata windowHandle={DescribeWindow(windowHandle)}");
             return EXIT_SENDKEYS_FAIL;
         }
 
@@ -528,12 +641,20 @@ internal static partial class Program
             var zedWindow = FindZedWindow();
             if (zedWindow != IntPtr.Zero)
             {
-                AcquireFocus(zedWindow);
+                Log($"SendToStataWindow: attempting to return focus to Zed via FindZedWindow: {DescribeWindow(zedWindow)}");
+                var ok = AcquireFocus(zedWindow);
+                Log($"SendToStataWindow: return focus to Zed result={ok} currentForeground={DescribeWindow(GetForegroundWindow())}");
             }
             else if (originalWindow != IntPtr.Zero && originalWindow != windowHandle)
             {
                 // Fall back to original foreground window
-                AcquireFocus(originalWindow);
+                Log($"SendToStataWindow: FindZedWindow failed; attempting fallback to originalForeground={DescribeWindow(originalWindow)}");
+                var ok = AcquireFocus(originalWindow);
+                Log($"SendToStataWindow: return focus to originalForeground result={ok} currentForeground={DescribeWindow(GetForegroundWindow())}");
+            }
+            else
+            {
+                Log($"SendToStataWindow: No viable window to return focus to. originalForeground={DescribeWindow(originalWindow)} stata={DescribeWindow(windowHandle)} zed=0x0");
             }
         }
 
