@@ -831,6 +831,59 @@ function Uninstall-WorkspaceKernel {
 }
 
 # ============================================================================
+# PATH Management
+# ============================================================================
+
+function Add-VenvToPath {
+    $venvScripts = "$VENV_DIR\Scripts"
+
+    # Get current user PATH
+    $currentPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+
+    # Check if already in PATH
+    $pathEntries = $currentPath -split ';' | Where-Object { $_ -ne '' }
+    $normalized = $pathEntries | ForEach-Object { $_.TrimEnd('\') }
+    $targetNormalized = $venvScripts.TrimEnd('\')
+
+    if ($normalized -contains $targetNormalized) {
+        Write-InfoMessage "Jupyter venv is already in PATH"
+        return
+    }
+
+    # Add to PATH
+    Write-InfoMessage "Adding Jupyter venv to user PATH for Zed integration..."
+    $newPath = if ($currentPath) { "$currentPath;$venvScripts" } else { $venvScripts }
+    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+    Write-SuccessMessage "Added to PATH: $venvScripts"
+}
+
+function Remove-VenvFromPath {
+    $venvScripts = "$VENV_DIR\Scripts"
+
+    # Get current user PATH
+    $currentPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+
+    # Check if in PATH
+    $pathEntries = $currentPath -split ';' | Where-Object { $_ -ne '' }
+    $normalized = $pathEntries | ForEach-Object { $_.TrimEnd('\') }
+    $targetNormalized = $venvScripts.TrimEnd('\')
+
+    if ($normalized -notcontains $targetNormalized) {
+        Write-InfoMessage "Jupyter venv not in PATH (already removed)"
+        return
+    }
+
+    # Remove from PATH
+    Write-InfoMessage "Removing Jupyter venv from user PATH..."
+    $filteredEntries = $pathEntries | Where-Object {
+        $_.TrimEnd('\') -ne $targetNormalized
+    }
+    $newPath = $filteredEntries -join ';'
+    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+    Write-SuccessMessage "Removed from PATH"
+}
+
+# ============================================================================
 # Uninstallation
 # ============================================================================
 
@@ -841,6 +894,9 @@ function Uninstall {
 
     # Remove workspace kernel first (before removing venv)
     Uninstall-WorkspaceKernel
+
+    # Remove from PATH
+    Remove-VenvFromPath
 
     # Remove kernel spec - dynamically find it
     try {
@@ -934,6 +990,12 @@ function Print-Summary {
     Write-Host "      }"
     Write-Host "    }"
     Write-Host ""
+    Write-Host "  IMPORTANT: You must restart Zed for changes to take effect."
+    Write-Host ""
+    Write-Host "  The Jupyter venv has been added to your user PATH so Zed can"
+    Write-Host "  discover the kernels. After restarting Zed, the REPL panel"
+    Write-Host "  should show 'Stata' and 'Stata (Workspace)' as kernel options."
+    Write-Host ""
 }
 
 function Main {
@@ -956,6 +1018,7 @@ function Main {
     Register-Kernel
     Verify-KernelSpec
     Install-WorkspaceKernel
+    Add-VenvToPath
 
     Print-Summary
 }
