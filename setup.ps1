@@ -15,6 +15,42 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ============================================================================
+# Expected SHA-256 checksums for downloaded files
+# Update these when upstream releases change
+# ============================================================================
+$script:Checksums = @{
+    # WASI SDK 24 - x86_64 Windows (ARM64 Windows not available in this release)
+    WasiSdkX64 = "0f934c6e7e171b5627c81b697a9e57e96d65cd889f56ce6077350de48978afd3"
+    
+    # Tree-sitter-stata grammar WASM v0.1.0
+    TreeSitterGrammar = "357d74471e1c8e316805f882c4b942438ee1c54b5f23687ac001d710b826a237"
+    
+    # Sight language server v0.1.11
+    SightServer = "0c36e13b5c85447fb64d2b1ac3dbeff733911e6b96bfc0afb182a75f5467f38f"
+}
+
+function Test-FileChecksum {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)][string]$ExpectedHash,
+        [string]$Description = "file"
+    )
+    
+    if (-not (Test-Path $Path)) {
+        throw "File not found for checksum verification: $Path"
+    }
+    
+    $actualHash = (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLower()
+    $expectedLower = $ExpectedHash.ToLower()
+    
+    if ($actualHash -ne $expectedLower) {
+        throw "Checksum verification failed for $Description`nExpected: $expectedLower`nActual:   $actualHash`nThis may indicate a corrupted download. Delete the file and try again."
+    }
+    
+    Write-Host "Checksum verified for $Description" -ForegroundColor Green
+}
+
 function Test-CommandExists {
     param([Parameter(Mandatory=$true)][string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -290,11 +326,14 @@ function Install-MSVCBuildToolsViaChocolatey {
 function Install-WasiSdk {
     $wasiSdkVersion = "24"
     $hostArch = Get-HostArch
+    
+    # Note: WASI SDK 24 does not have an ARM64 Windows build.
+    # ARM64 Windows users will need to use x86_64 build under emulation.
     if ($hostArch -eq "Arm64") {
-        $wasiSdkUrl = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${wasiSdkVersion}/wasi-sdk-${wasiSdkVersion}.0-arm64-windows.tar.gz"
-    } else {
-        $wasiSdkUrl = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${wasiSdkVersion}/wasi-sdk-${wasiSdkVersion}.0-x86_64-windows.tar.gz"
+        Write-Host "Note: WASI SDK does not provide ARM64 Windows builds. Using x86_64 build." -ForegroundColor Yellow
     }
+    
+    $wasiSdkUrl = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${wasiSdkVersion}/wasi-sdk-${wasiSdkVersion}.0-x86_64-windows.tar.gz"
     $wasiSdkPath = "C:\wasi-sdk"
 
     if (Test-Path $wasiSdkPath) {
@@ -308,6 +347,9 @@ function Install-WasiSdk {
 
     Write-Host "Downloading WASI SDK from GitHub..." -ForegroundColor Yellow
     Invoke-WebRequest -Uri $wasiSdkUrl -OutFile $downloadPath
+
+    # Verify checksum
+    Test-FileChecksum -Path $downloadPath -ExpectedHash $script:Checksums.WasiSdkX64 -Description "WASI SDK"
 
     Write-Host "Extracting WASI SDK..." -ForegroundColor Yellow
     tar -xzf $downloadPath -C $wasiSdkPath --strip-components=1
@@ -485,6 +527,9 @@ function Download-TreeSitterGrammar {
         throw "Failed to download grammar WASM"
     }
 
+    # Verify checksum
+    Test-FileChecksum -Path $destWasm -ExpectedHash $script:Checksums.TreeSitterGrammar -Description "tree-sitter-stata grammar"
+
     $size = (Get-Item $destWasm).Length
     Write-Host "Downloaded grammar: grammars\stata.wasm ($size bytes)" -ForegroundColor Green
 
@@ -535,8 +580,17 @@ function Download-LanguageServerForDev {
     $serverScript = Join-Path $serverDir "sight-server.js"
 
     if (Test-Path $serverScript) {
-        Write-Host "Language server already present for dev testing: $serverScript" -ForegroundColor Green
-        return
+        # Verify existing file checksum
+        try {
+            Test-FileChecksum -Path $serverScript -ExpectedHash $script:Checksums.SightServer -Description "Sight language server"
+        } catch {
+            Write-Host "Existing language server failed checksum, re-downloading..." -ForegroundColor Yellow
+            Remove-Item -Path $serverScript -Force
+        }
+        if (Test-Path $serverScript) {
+            Write-Host "Language server already present for dev testing: $serverScript" -ForegroundColor Green
+            return
+        }
     }
 
     # First check if Zed already downloaded it to the work directory
@@ -547,6 +601,10 @@ function Download-LanguageServerForDev {
         Write-Host "Copying language server from Zed work directory..."
         New-Item -ItemType Directory -Path $serverDir -Force | Out-Null
         Copy-Item -Path $zedServerScript -Destination $serverScript -Force
+        
+        # Verify checksum of copied file
+        Test-FileChecksum -Path $serverScript -ExpectedHash $script:Checksums.SightServer -Description "Sight language server"
+        
         Write-Host "Copied language server for dev testing: $serverScript" -ForegroundColor Green
         return
     }
@@ -561,6 +619,9 @@ function Download-LanguageServerForDev {
     if (-not (Test-Path $serverScript)) {
         throw "Failed to download language server"
     }
+
+    # Verify checksum
+    Test-FileChecksum -Path $serverScript -ExpectedHash $script:Checksums.SightServer -Description "Sight language server"
 
     $size = (Get-Item $serverScript).Length
     Write-Host "Downloaded language server: $serverScript ($size bytes)" -ForegroundColor Green
