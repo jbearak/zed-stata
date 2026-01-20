@@ -69,16 +69,7 @@ See [SEND-TO-STATA.md](SEND-TO-STATA.md) for full documentation, configuration o
 
 **Note:** Zed's built-in REPL currently only supports Python, TypeScript (Deno), R, Julia, and Scala. Stata is not yet supported, even with the Jupyter kernels installed.
 
-However, you can still install [stata_kernel](https://kylebarron.dev/stata_kernel/) for use in Jupyter Lab/Notebook or other Jupyter clients outside of Zed.
-
-### Windows Notes (Installer Behavior)
-
-On Windows, `install-jupyter-stata.ps1` is intentionally opinionated to be reliable across Python/Jupyter setups:
-
-- **Uses Python 3.11 via the Python Launcher (`py -3.11`)** when available (stata_kernel is most stable on 3.9–3.11; newer versions have caused dependency and kernelspec issues).
-- **Recreates the venv if needed** to ensure the venv is actually using Python 3.11.
-- **Installs only minimal Jupyter components** (`jupyter-core`, `jupyter-client`, and a pinned `ipykernel`) instead of the full `jupyter` meta-package to avoid pulling in `notebook`/`jupyterlab` and native build dependencies (e.g. `pywinpty`).
-- **Writes kernelspecs deterministically** into `%APPDATA%\jupyter\kernels\...` (including `kernel.json`) so Zed can discover them reliably.
+> **Note:** stata_kernel works well for interactive exploration but can hang on long-running loops or operations taking more than several seconds. For batch scripts or iterative workflows, use [Send to Stata](#send-to-stata-optional) instead. See [comparison table](#choosing-between-send-to-stata-and-jupyter-repl) below.
 
 ### macOS
 
@@ -93,6 +84,13 @@ Requires **PowerShell 7+** (`pwsh`). Windows PowerShell 5.1 may fail to parse th
 ```powershell
 irm https://raw.githubusercontent.com/jbearak/sight-zed/main/install-jupyter-stata.ps1 | pwsh -NoProfile -ExecutionPolicy Bypass -File -
 ```
+
+The Windows installer is intentionally opinionated to be reliable across Python/Jupyter setups:
+
+- **Uses Python 3.11 via the Python Launcher (`py -3.11`)** when available (stata_kernel is most stable on 3.9–3.11; newer versions have caused dependency and kernelspec issues).
+- **Recreates the venv if needed** to ensure the venv is actually using Python 3.11.
+- **Installs only minimal Jupyter components** (`jupyter-core`, `jupyter-client`, and a pinned `ipykernel`) instead of the full `jupyter` meta-package to avoid pulling in `notebook`/`jupyterlab` and native build dependencies (e.g. `pywinpty`).
+- **Writes kernelspecs deterministically** into `%APPDATA%\jupyter\kernels\...` (including `kernel.json`) so Zed can discover them reliably.
 
 **Important:** After installing or updating the Jupyter kernels, **restart Zed**. Kernel discovery/connection state can be cached, and a restart is often required before the kernels can connect successfully. The installer adds the Jupyter virtual environment to your PATH so Zed can discover the kernels.
 
@@ -116,6 +114,16 @@ The workspace kernel walks up from the file's directory looking for `.git`, `.st
 
 > **Future Support:** If you'd like to see Stata REPL support added to Zed, consider opening a feature request on the [Zed GitHub repository](https://github.com/zed-industries/zed/issues).
 
+## Choosing Between Send-to-Stata and Jupyter REPL
+
+| Scenario | Recommended | Why |
+|----------|-------------|-----|
+| Quick data exploration | Jupyter REPL | Inline results, fast iteration |
+| Testing individual commands | Jupyter REPL | Interactive feedback |
+| Loops with many iterations | Send to Stata | Avoids kernel hang issues |
+| Operations > several seconds | Send to Stata | Avoids potential instability |
+| Graph-heavy workflows | Send to Stata | Graphs can trigger kernel hangs |
+| Production batch jobs | Send to Stata | Reliable unattended execution |
 
 ## Building from Source
 
@@ -149,7 +157,7 @@ cd sight-zed
 
 ## Related Projects
 
-- [Sight LSP](https://github.com/jbearak/sight) - The Stata language server
+- [Sight LSP](https://github.com/jbearak/sight) - A language server protocol implementation for the Stata statistical programming language
 - [tree-sitter-stata](https://github.com/jbearak/tree-sitter-stata) - Tree-sitter grammar for Stata
 
 ## License

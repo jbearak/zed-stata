@@ -111,7 +111,15 @@ try {
 
     # Stage and commit
     & git add $setupPath
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git add failed with exit code $LASTEXITCODE"
+        exit 1
+    }
     & git commit -m "chore: update setup.ps1 dependency checksums"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git commit failed with exit code $LASTEXITCODE"
+        exit 1
+    }
 
     Write-Host "Committed changes." -ForegroundColor Green
 
