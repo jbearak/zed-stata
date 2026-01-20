@@ -323,36 +323,6 @@ internal static partial class Program
             }
         }
 
-        // Also try generic search for any Stata* process
-        try
-        {
-            foreach (var proc in Process.GetProcesses())
-            {
-                try
-                {
-                    if (proc.ProcessName.StartsWith("Stata", StringComparison.OrdinalIgnoreCase) ||
-                        proc.ProcessName.StartsWith("StataNow", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!string.IsNullOrEmpty(proc.MainWindowTitle) &&
-                            titleRegex.IsMatch(proc.MainWindowTitle) &&
-                            !proc.MainWindowTitle.Contains("Viewer"))
-                        {
-                            return proc; // Caller is responsible for disposal
-                        }
-                    }
-                }
-                catch
-                {
-                    // Process may have exited, continue searching
-                }
-                proc.Dispose();
-            }
-        }
-        catch
-        {
-            // Ignore errors
-        }
-
         return null;
     }
 
