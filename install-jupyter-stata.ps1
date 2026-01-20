@@ -15,6 +15,49 @@ param (
 )
 
 # ============================================================================
+# PowerShell 7+ Check
+# ============================================================================
+# This script requires PowerShell 7+ due to syntax and module compatibility.
+# If running in Windows PowerShell 5.1, attempt to re-launch with pwsh.
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    $scriptPath = $MyInvocation.MyCommand.Path
+    $pwshPath = Get-Command pwsh -ErrorAction SilentlyContinue
+    
+    if ($pwshPath) {
+        Write-Host "Re-launching with PowerShell 7..." -ForegroundColor Yellow
+        
+        if ($scriptPath) {
+            # Running from a file - re-invoke with pwsh
+            $scriptArgs = @()
+            if ($uninstall) { $scriptArgs += '-Uninstall' }
+            if ($removeConfig) { $scriptArgs += '-RemoveConfig' }
+            & pwsh -File $scriptPath @scriptArgs
+            exit $LASTEXITCODE
+        } else {
+            # Piped via irm | iex - re-fetch and invoke as scriptblock with args
+            $scriptArgs = @()
+            if ($uninstall) { $scriptArgs += '-Uninstall' }
+            if ($removeConfig) { $scriptArgs += '-RemoveConfig' }
+            $url = "https://raw.githubusercontent.com/jbearak/sight-zed/main/install-jupyter-stata.ps1"
+            $argsStr = ($scriptArgs | ForEach-Object { "'$_'" }) -join ','
+            & pwsh -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm '$url'))) $argsStr"
+            exit $LASTEXITCODE
+        }
+    }
+    
+    Write-Host "ERROR: This script requires PowerShell 7+." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "You're running Windows PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Install PowerShell 7:" -ForegroundColor Cyan
+    Write-Host "  winget install Microsoft.PowerShell"
+    Write-Host ""
+    Write-Host "Then run:" -ForegroundColor Cyan
+    Write-Host "  pwsh -c `"irm https://raw.githubusercontent.com/jbearak/sight-zed/main/install-jupyter-stata.ps1 | iex`""
+    exit 1
+}
+
+# ============================================================================
 # Configuration Constants
 # ============================================================================
 $VENV_DIR = "$env:LOCALAPPDATA\stata_kernel\venv"
@@ -1302,8 +1345,9 @@ function Print-Summary {
     Write-Host ""
     Write-Host "  Usage in Zed:"
     Write-Host "    1. Open a .do file"
-    Write-Host "    2. Open the REPL panel (View → Toggle REPL)"
-    Write-Host "    3. Select 'Stata' or 'Stata (Workspace)' as the kernel"
+    Write-Host "    2. Select 'stata' or 'stata_workspace' as the kernel"
+    Write-Host "    3. Click the 🔄 icon in the editor toolbar to execute code"
+    Write-Host "       or use Control+Shift+Enter keyboard shortcut"
     Write-Host ""
     Write-Host "  To set a default kernel, add to %APPDATA%\zed\settings.json:"
     Write-Host ""
@@ -1318,7 +1362,7 @@ function Print-Summary {
     Write-Host "  IMPORTANT: You must restart Zed for changes to take effect."
     Write-Host ""
     Write-Host "  The Jupyter venv has been added to your user PATH so Zed can"
-    Write-Host "  discover the kernels. After restarting Zed, the REPL panel"
+    Write-Host "  discover the kernels. After restarting Zed, clicking the 🔄 icon"
     Write-Host "  should show 'Stata' and 'Stata (Workspace)' as kernel options."
     Write-Host ""
 }
