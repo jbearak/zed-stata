@@ -25,19 +25,19 @@ This implementation adds consistent focus behavior to send-to-stata across macOS
   - Update checksums in install-send-to-stata.ps1 using update-checksum.ps1
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. Update Windows installer for new focus behavior
-  - [ ] 3.1 Update Install-Tasks function in install-send-to-stata.ps1
+- [X] 3. Update Windows installer for new focus behavior
+  - [X] 3.1 Update Install-Tasks function in install-send-to-stata.ps1
     - Change task generation to NOT include `-ReturnFocus` by default (new default behavior)
     - Add `-ActivateStata` flag to task commands when user selects "switch to Stata"
     - Update parameter handling: rename/add `-ActivateStata` parameter
     - _Requirements: 5.4, 5.5, 6.3, 6.4_
 
-  - [ ] 3.2 Update interactive prompt wording
+  - [X] 3.2 Update interactive prompt wording
     - Change prompt to match new semantics: "Switch to Stata after sending code? [y/N]"
     - Default to "No" (stay in Zed)
     - _Requirements: 5.1, 5.2, 5.3_
 
-  - [ ] 3.3 Write unit tests for Windows installer task generation
+  - [X] 3.3 Write unit tests for Windows installer task generation
     - Test tasks.json contains `-ActivateStata` when configured
     - Test tasks.json does NOT contain `-ActivateStata` when not configured
     - _Requirements: 5.4, 5.5_
@@ -62,7 +62,7 @@ This implementation adds consistent focus behavior to send-to-stata across macOS
     - Test correct Stata variant name is used
     - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 5. Checkpoint - Test installers
+- [X] 5. Checkpoint - Test installers
   - Run macOS installer with both `--activate-stata` and `--stay-in-zed` flags
   - Run Windows installer with both `-ActivateStata true` and `-ActivateStata false`
   - Verify generated tasks.json on both platforms
