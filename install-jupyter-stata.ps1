@@ -993,15 +993,56 @@ function Get-WorkspaceKernelScript {
     @'
 #!/usr/bin/env python3
 """
-Wrapper kernel for stata_kernel that changes to workspace root before starting.
+Wrapper kernel for stata_kernel that changes to workspace root before starting (Windows-friendly).
 
-This kernel finds the workspace root by looking for marker files (.git, .stata-project)
-and changes to that directory before delegating to stata_kernel.
+Why this exists:
+- Zed launches kernels in the file's directory. For many projects, Stata code expects to run from the
+  workspace root (e.g., relative paths like "data/foo.dta").
+- `stata_kernel` also hard-requires the `notebook` package at runtime by calling:
+    importlib.resources.files("notebook").joinpath("static/components/codemirror/mode/stata/stata.js")
+  Installing `notebook` on Windows can pull in `pywinpty` and trigger native builds (NuGet/Rust),
+  which frequently fail on Windows/ARM64.
+
+What we do instead:
+- Find the workspace root and `chdir` to it before starting the kernel.
+- Monkey-patch `importlib.resources.files` so that requests for the `notebook` package resolve to a
+  small, local stub directory. This keeps `stata_kernel` happy without needing `notebook`.
 """
 
 import os
-import sys
+import importlib
+import importlib.resources as resources
 from pathlib import Path
+
+from ipykernel.kernelapp import IPKernelApp
+
+
+def _ensure_notebook_stub_dir() -> Path:
+    """
+    Create a minimal directory structure that matches what stata_kernel expects inside `notebook`:
+      static/components/codemirror/mode/stata/
+    """
+    # Place stub next to this wrapper for determinism.
+    root = Path(__file__).resolve().parent / "_notebook_stub"
+    target_dir = root / "static" / "components" / "codemirror" / "mode" / "stata"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+_original_files = resources.files
+
+
+def _patched_files(package):
+    # Handle both string module names and module objects.
+    name = package if isinstance(package, str) else getattr(package, "__name__", "")
+    if name == "notebook":
+        return _ensure_notebook_stub_dir()
+    return _original_files(package)
+
+
+# Patch only within this kernel process.
+resources.files = _patched_files
+
 
 def find_workspace_root(start_path: Path) -> Path:
     """
@@ -1030,6 +1071,7 @@ def find_workspace_root(start_path: Path) -> Path:
     # No marker found, return original (resolved)
     return start_path.resolve()
 
+
 def main():
     # Get the current working directory (set by Zed to file's directory)
     cwd = Path.cwd()
@@ -1040,11 +1082,10 @@ def main():
     # Change to workspace root
     os.chdir(workspace_root)
 
-    # Now import and run stata_kernel
-    from stata_kernel import kernel
-    from ipykernel.kernelapp import IPKernelApp
+    # Import and run stata_kernel without shadowing issues
+    kernel_mod = importlib.import_module("stata_kernel.kernel")
+    IPKernelApp.launch_instance(kernel_class=kernel_mod.StataKernel)
 
-    IPKernelApp.launch_instance(kernel_class=kernel.StataKernel)
 
 if __name__ == '__main__':
     main()

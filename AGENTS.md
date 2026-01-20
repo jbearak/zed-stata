@@ -63,7 +63,13 @@ Installing the `jupyter` meta-package can pull in `notebook`/`jupyterlab` and tr
 #### 5) Avoid installing `notebook` (prevents `pywinpty` build failures)
 `stata_kernel` tries to copy a CodeMirror mode file into the `notebook` package at runtime (`importlib.resources.files("notebook")...`). Installing `notebook` on Windows can pull in `pywinpty`, which may require native builds and fail (especially on Windows/ARM64).
 
-**What we do:** Do **not** install `notebook`. Instead, the kernelspec wrapper **monkey-patches** `importlib.resources.files("notebook")` to point at a small stub directory so `stata_kernel` can start without `notebook`.
+**What we do:** Do **not** install `notebook`. Instead, the kernelspec wrappers **monkey-patch** `importlib.resources.files("notebook")` to point at a small stub directory so `stata_kernel` can start without `notebook`.
+
+**Important:** This patch must be applied in **both** kernels:
+- `stata` (standard kernel wrapper)
+- `stata_workspace` (workspace wrapper)
+
+If the workspace kernel wrapper does not include the notebook stub patch, it will hang/fail at startup with `ModuleNotFoundError: No module named 'notebook'`.
 
 #### 6) Deterministic kernelspec registration (always write `kernel.json`)
 On some Windows setups, `stata_kernel.install` can produce an incomplete kernelspec directory (e.g., `stata` exists but `kernel.json` is missing), which breaks both Jupyter and Zed discovery.
@@ -74,7 +80,7 @@ On some Windows setups, `stata_kernel.install` can produce an incomplete kernels
 
 This includes:
 - `kernel.json` (required)
-- a small Python wrapper script that launches `stata_kernel` via `ipykernel` (and applies the `notebook` stub patch above)
+- small Python wrapper scripts that launch `stata_kernel` via `ipykernel` (and apply the `notebook` stub patch above)
 
 This approach is intentionally “dumb but reliable”.
 
