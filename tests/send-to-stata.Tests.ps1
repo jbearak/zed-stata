@@ -47,6 +47,17 @@ function Invoke-Exe {
     }
 }
 
+# Helper to get the correct executable for the current host architecture
+function Get-SendToStataExePath {
+    $repoRoot = Join-Path $PSScriptRoot ".."
+    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+    if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) {
+        return Join-Path $repoRoot "send-to-stata-arm64.exe"
+    } else {
+        return Join-Path $repoRoot "send-to-stata-x64.exe"
+    }
+}
+
 Describe "send-to-stata (Windows native executable)" {
 
     It "has committed send-to-stata executables in repo root" {
@@ -63,11 +74,10 @@ Describe "send-to-stata (Windows native executable)" {
     It "prints a deprecation warning for -ReturnFocus (argument parsing smoke test)" {
         Skip-WindowsOnly
 
-        $repoRoot = Join-Path $PSScriptRoot ".."
-        $arm64 = Join-Path $repoRoot "send-to-stata-arm64.exe"
+        $exePath = Get-SendToStataExePath
 
-        if (-not (Test-Path $arm64)) {
-            throw "Missing executable: $arm64"
+        if (-not (Test-Path $exePath)) {
+            throw "Missing executable: $exePath"
         }
 
         # Provide required args so the executable gets past basic validation and produces stderr output.
@@ -77,7 +87,7 @@ Describe "send-to-stata (Windows native executable)" {
         Set-Content -Path $tempFile -Value "display 1" -Encoding UTF8
 
         try {
-            $result = Invoke-Exe -ExePath $arm64 -Args @("-FileMode", "-ReturnFocus", "-File", "`"$tempFile`"")
+            $result = Invoke-Exe -ExePath $exePath -Args @("-FileMode", "-ReturnFocus", "-File", "`"$tempFile`"")
 
             # Some environments may successfully complete without producing stderr (e.g. if Stata is available
             # and the command sends successfully). We only assert that the process ran to completion.
@@ -90,15 +100,14 @@ Describe "send-to-stata (Windows native executable)" {
     It "accepts -ActivateStata flag without crashing (argument parsing smoke test)" {
         Skip-WindowsOnly
 
-        $repoRoot = Join-Path $PSScriptRoot ".."
-        $arm64 = Join-Path $repoRoot "send-to-stata-arm64.exe"
+        $exePath = Get-SendToStataExePath
 
-        if (-not (Test-Path $arm64)) {
-            throw "Missing executable: $arm64"
+        if (-not (Test-Path $exePath)) {
+            throw "Missing executable: $exePath"
         }
 
         # Provide minimal but invalid args so it exits quickly. We only assert it runs.
-        $result = Invoke-Exe -ExePath $arm64 -Args @("-ActivateStata")
+        $result = Invoke-Exe -ExePath $exePath -Args @("-ActivateStata")
 
         # Non-zero exit is expected (invalid args), but it should not hard-crash.
         # We treat any integer exit code as "ran"; specifically, it must return.
