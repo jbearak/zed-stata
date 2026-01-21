@@ -22,10 +22,10 @@ param (
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     $scriptPath = $MyInvocation.MyCommand.Path
     $pwshPath = Get-Command pwsh -ErrorAction SilentlyContinue
-    
+
     if ($pwshPath) {
         Write-Host "Re-launching with PowerShell 7..." -ForegroundColor Yellow
-        
+
         if ($scriptPath) {
             # Running from a file - re-invoke with pwsh
             $scriptArgs = @()
@@ -44,7 +44,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
             exit $LASTEXITCODE
         }
     }
-    
+
     Write-Host "ERROR: This script requires PowerShell 7+." -ForegroundColor Red
     Write-Host ""
     Write-Host "You're running Windows PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Yellow
@@ -502,7 +502,6 @@ function Find-StataInstallation {
 function Detect-StataApp {
     $script:STATA_PATH = $env:STATA_PATH
     $script:STATA_EDITION = ""
-    $script:EXECUTION_MODE = ""
 
     # Check environment variable override first
     if (-not [string]::IsNullOrEmpty($script:STATA_PATH)) {
@@ -550,16 +549,9 @@ function Detect-StataApp {
         }
     }
 
-    # Determine execution mode (allow override)
-    if (-not [string]::IsNullOrEmpty($env:STATA_EXECUTION_MODE)) {
-        $script:EXECUTION_MODE = $env:STATA_EXECUTION_MODE
-    } else {
-        switch ($script:STATA_EDITION) {
-            "MP" { $script:EXECUTION_MODE = "console" }
-            "SE" { $script:EXECUTION_MODE = "console" }
-            default { $script:EXECUTION_MODE = "automation" }
-        }
-    }
+    # Always use automation mode - this allows stata_kernel to connect to an
+    # already-running Stata instance via COM automation. This is the only mode
+    # supported for Zed's Jupyter integration.
 }
 
 # ============================================================================
@@ -837,8 +829,8 @@ function Get-ConfigTemplate {
 stata_path = STATA_PATH_PLACEHOLDER
 
 # execution_mode: How stata_kernel communicates with Stata (Windows only)
-# Values: console (MP/SE), automation (IC/BE)
-execution_mode = EXECUTION_MODE_PLACEHOLDER
+# Always set to 'automation' to connect to your running Stata instance via COM.
+execution_mode = automation
 
 # cache_directory: Directory for temporary log files and graphs
 # cache_directory = ~/.stata_kernel_cache
@@ -868,7 +860,6 @@ function Write-Config {
         # Create new config from template
         $configContent = Get-ConfigTemplate
         $configContent = $configContent -replace "STATA_PATH_PLACEHOLDER", $script:STATA_PATH
-        $configContent = $configContent -replace "EXECUTION_MODE_PLACEHOLDER", $script:EXECUTION_MODE
         $configContent | Out-File -FilePath $CONFIG_FILE -Encoding utf8
         (Get-Item $CONFIG_FILE).Attributes = "Normal"
         Write-SuccessMessage "Created configuration at $CONFIG_FILE"
@@ -876,7 +867,7 @@ function Write-Config {
         # Update existing config - preserve user settings
         $configContent = Get-Content -Path $CONFIG_FILE -Raw
         $configContent = $configContent -replace "stata_path\s*=.*", "stata_path = $($script:STATA_PATH)"
-        $configContent = $configContent -replace "execution_mode\s*=.*", "execution_mode = $($script:EXECUTION_MODE)"
+        $configContent = $configContent -replace "execution_mode\s*=.*", "execution_mode = automation"
         $configContent | Out-File -FilePath $CONFIG_FILE -Encoding utf8
         Write-SuccessMessage "Updated configuration at $CONFIG_FILE"
     }
@@ -1328,7 +1319,7 @@ function Print-Summary {
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     Write-Host ""
     Write-Host "  Stata Edition:    $($script:STATA_EDITION)"
-    Write-Host "  Execution Mode:   $($script:EXECUTION_MODE)"
+    Write-Host "  Execution Mode:   automation"
     Write-Host "  Configuration:    $CONFIG_FILE"
     Write-Host ""
     Write-Host ""

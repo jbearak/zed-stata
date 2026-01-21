@@ -36,9 +36,18 @@ What the installer does (Windows):
 
 **Important:** After installation or upgrades, **restart Zed**. Kernel discovery/connection state can be cached; a restart is often required before the kernels can connect.
 
-### Windows-Specific Learnings / Gotchas (Why the Script Looks “Hacky”)
+### Windows-Specific Learnings / Gotchas (Why the Script Looks "Hacky")
 
-#### 1) Avoid Microsoft Store Python (`WindowsApps`) for kernel discovery
+#### 1) Always use automation mode (not console mode)
+`stata_kernel` supports two execution modes on Windows:
+- **`automation`**: Connects to a running Stata instance via COM automation
+- **`console`**: Launches a new Stata process in batch mode
+
+**The installer only uses `automation` mode.** Console mode is not supported because it launches a new Stata process that conflicts with or terminates your running Stata GUI, causing crashes when you start the kernel.
+
+Automation mode allows the kernel to send commands to your already-running Stata instance, which is exactly what you want when using Zed's Jupyter integration. The `.stata_kernel.conf` file always sets `execution_mode = automation` regardless of your Stata edition (MP/SE/IC/BE).
+
+#### 2) Avoid Microsoft Store Python (`WindowsApps`) for kernel discovery
 Windows “App Execution Aliases” can cause `python` to resolve to the Microsoft Store shim under:
 - `...\AppData\Local\Microsoft\WindowsApps\python.exe`
 
@@ -46,12 +55,12 @@ This can redirect Jupyter’s data dir to a non-standard location (e.g. `...\Loc
 
 **What we do:** On Windows, prefer `py -3.11` via the Python Launcher (`C:\Windows\py.exe`) so we can reliably target a real Python installation even when `python` points at the Store shim.
 
-#### 2) Pin to Python 3.11 (especially on Windows/ARM64)
+#### 3) Pin to Python 3.11 (especially on Windows/ARM64)
 `stata_kernel` has historically worked best on Python 3.9–3.11. Newer versions (3.12/3.13) have caused repeated dependency and kernelspec issues on Windows.
 
 **What we do:** Prefer **Python 3.11** via `py -3.11`. If the existing venv was created with a different Python, the installer **forcefully recreates** the venv to ensure consistency.
 
-#### 3) Do NOT install the full `jupyter` meta-package on Windows
+#### 4) Do NOT install the full `jupyter` meta-package on Windows
 Installing the `jupyter` meta-package can pull in `notebook`/`jupyterlab` and transitive dependencies like `pywinpty`, which may require native builds (NuGet/Rust toolchain) and can fail—especially on Windows/ARM64.
 
 **What we do:** Install only the minimal components needed for kernelspecs and kernel launching, plus only the runtime deps that `stata_kernel` actually imports:
@@ -59,7 +68,7 @@ Installing the `jupyter` meta-package can pull in `notebook`/`jupyterlab` and tr
 - `jupyter-client`
 - `ipykernel` (pinned to a Zed-compatible version)
 
-#### 4) `stata_kernel` dependency pins are too old—install it with `--no-deps`
+#### 5) `stata_kernel` dependency pins are too old—install it with `--no-deps`
 `stata_kernel` pins some dependencies to very old versions (e.g., `ipykernel<5`, `packaging<18`). On modern Python/Jupyter stacks this causes pip resolver backtracking and can force native builds that fail.
 
 **What we do:** Install `stata_kernel` with `--no-deps` and then install a modern, pinned set of runtime deps explicitly (including the pinned `ipykernel`). On Windows this also includes dependencies required for imports and startup like:
@@ -67,7 +76,7 @@ Installing the `jupyter` meta-package can pull in `notebook`/`jupyterlab` and tr
 - `beautifulsoup4` (provides `bs4`)
 - `fake-useragent`
 
-#### 5) Avoid installing `notebook` (prevents `pywinpty` build failures)
+#### 6) Avoid installing `notebook` (prevents `pywinpty` build failures)
 `stata_kernel` tries to copy a CodeMirror mode file into the `notebook` package at runtime (`importlib.resources.files("notebook")...`). Installing `notebook` on Windows can pull in `pywinpty`, which may require native builds and fail (especially on Windows/ARM64).
 
 **What we do:** Do **not** install `notebook`. Instead, the kernelspec wrappers **monkey-patch** `importlib.resources.files("notebook")` to point at a small stub directory so `stata_kernel` can start without `notebook`.
@@ -78,7 +87,7 @@ Installing the `jupyter` meta-package can pull in `notebook`/`jupyterlab` and tr
 
 If the workspace kernel wrapper does not include the notebook stub patch, it will hang/fail at startup with `ModuleNotFoundError: No module named 'notebook'`.
 
-#### 6) Deterministic kernelspec registration (always write `kernel.json`)
+#### 7) Deterministic kernelspec registration (always write `kernel.json`)
 On some Windows setups, `stata_kernel.install` can produce an incomplete kernelspec directory (e.g., `stata` exists but `kernel.json` is missing), which breaks both Jupyter and Zed discovery.
 
 **What we do:** The installer writes the kernelspecs directly into:
@@ -91,7 +100,7 @@ This includes:
 
 This approach is intentionally “dumb but reliable”.
 
-#### 7) When changing Python versions, you must rebuild the venv
+#### 8) When changing Python versions, you must rebuild the venv
 If you switch Python versions (or fix Store-Python alias issues), the existing venv won’t magically follow. The installer recreates the venv automatically when it detects a non-preferred version.
 
 
