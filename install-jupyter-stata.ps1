@@ -1309,6 +1309,90 @@ function Uninstall {
 }
 
 # ============================================================================
+# COM Automation Registration
+# ============================================================================
+
+function Test-StataAutomationRegistered {
+    try {
+        $typeLibGuid = "{00020813-0000-0000-C000-000000000046}"
+        $regPath = "Registry::HKEY_CLASSES_ROOT\TypeLib\$typeLibGuid"
+
+        if (Test-Path $regPath) {
+            $versions = Get-ChildItem $regPath -ErrorAction SilentlyContinue
+            if ($versions) {
+                $latestVersion = $versions | Sort-Object Name -Descending | Select-Object -First 1
+                $win32Path = "$($latestVersion.PSPath)\0\win32"
+                if (Test-Path $win32Path) {
+                    $registeredPath = (Get-ItemProperty -Path $win32Path -Name "(default)" -ErrorAction SilentlyContinue)."(default)"
+                    return @{ IsRegistered = $true; RegisteredPath = $registeredPath }
+                }
+            }
+        }
+    } catch {
+        Write-Verbose "Could not check Stata automation registration: $_"
+    }
+
+    return @{ IsRegistered = $false; RegisteredPath = $null }
+}
+
+function Register-StataAutomation {
+    param([string]$StataPath)
+
+    Write-InfoMessage "Registering Stata Automation type library..."
+    Write-Host "This requires administrator privileges. A UAC prompt will appear."
+
+    try {
+        $process = Start-Process -FilePath $StataPath -ArgumentList "/Register" -Verb RunAs -Wait -PassThru
+        if ($process.ExitCode -eq 0) {
+            Write-SuccessMessage "Stata Automation type library registered successfully."
+            return $true
+        } else {
+            Write-ErrorMessage "Registration failed with exit code: $($process.ExitCode)"
+            Write-Host "Manual registration instructions:" -ForegroundColor Yellow
+            Write-Host "1. Open PowerShell as Administrator"
+            Write-Host "2. Run: & `"$StataPath`" /Register" -ForegroundColor Cyan
+            return $false
+        }
+    } catch {
+        if ($_.Exception.Message -match "canceled by the user") {
+            Write-Warning "Registration canceled by user."
+        } else {
+            Write-ErrorMessage "Registration failed: $_"
+            Write-Host "Manual registration instructions:" -ForegroundColor Yellow
+            Write-Host "1. Open PowerShell as Administrator"
+            Write-Host "2. Run: & `"$StataPath`" /Register" -ForegroundColor Cyan
+        }
+        return $false
+    }
+}
+
+function Invoke-AutomationRegistrationCheck {
+    param([string]$StataPath)
+
+    $regStatus = Test-StataAutomationRegistered
+
+    if (-not $regStatus.IsRegistered) {
+        Write-InfoMessage "Stata COM automation is not registered. Registering it now..."
+        Write-Host "This is required for stata_kernel to connect to your running Stata instance." -ForegroundColor Yellow
+        Write-Host "Windows may show a UAC elevation prompt from Stata during registration." -ForegroundColor Yellow
+        Write-Host ""
+        Register-StataAutomation $StataPath | Out-Null
+        return
+    }
+
+    if ($regStatus.RegisteredPath -and $regStatus.RegisteredPath -ne $StataPath) {
+        Write-InfoMessage "Stata version mismatch detected."
+        Write-Host "  Registered: $($regStatus.RegisteredPath)" -ForegroundColor Yellow
+        Write-Host "  Detected:   $StataPath" -ForegroundColor Yellow
+        Write-Host "Updating the registration to the detected installation..." -ForegroundColor Yellow
+        Register-StataAutomation $StataPath | Out-Null
+        return
+    }
+
+    Write-InfoMessage "Stata COM automation is already registered."
+}
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -1371,6 +1455,8 @@ function Main {
     Detect-StataApp
 
     Write-InfoMessage "Detected Stata $($script:STATA_EDITION) at $($script:STATA_PATH)"
+
+    Invoke-AutomationRegistrationCheck -StataPath $script:STATA_PATH
 
     Create-Venv
     Install-Packages

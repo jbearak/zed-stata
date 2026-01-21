@@ -31,7 +31,8 @@ What the installer does (Windows):
 - Creates (or recreates) an isolated virtual environment at `%LOCALAPPDATA%\stata_kernel\venv`
 - Installs `stata_kernel` plus a minimal, pinned Jupyter runtime needed for kernels
 - Registers two kernels: **Stata** and **Stata (Workspace)**
-- Writes/updates `%USERPROFILE%\.stata_kernel.conf`
+- Writes/updates `%USERPROFILE%\.stata_kernel.conf` with `execution_mode = automation`
+- **Registers Stata COM automation** (runs `stata.exe /Register` with UAC elevation if needed)
 - Ensures kernels are placed where Zed can discover them reliably
 
 **Important:** After installation or upgrades, **restart Zed**. Kernel discovery/connection state can be cached; a restart is often required before the kernels can connect.
