@@ -94,16 +94,22 @@ function Install-Executable {
         Copy-Item $exeName $destExe -Force
         Write-Host "Installed send-to-stata.exe from local file ($exeName)"
     } else {
-        # Download from GitHub
+        # Download from send-to-stata repo releases
         $githubRef = $env:SIGHT_GITHUB_REF
-        if (!$githubRef) { $githubRef = "main" }
-
-        $url = "https://github.com/jbearak/sight-zed/raw/$githubRef/$exeName"
-        Write-Host "Downloading $exeName from GitHub..."
+        if ($githubRef -and $githubRef -ne "main") {
+            # Custom ref - download from sight-zed repo (for testing)
+            $url = "https://github.com/jbearak/sight-zed/raw/$githubRef/$exeName"
+            Write-Host "Downloading $exeName from sight-zed (custom ref: $githubRef)..."
+        } else {
+            # Production - download from send-to-stata releases
+            $url = "https://github.com/jbearak/send-to-stata/releases/latest/download/$exeName"
+            Write-Host "Downloading $exeName from send-to-stata releases..."
+        }
+        
         Invoke-WebRequest -Uri $url -OutFile $destExe
 
         # Verify checksum (skip for custom refs used in testing)
-        if ($githubRef -eq "main") {
+        if (!$githubRef -or $githubRef -eq "main") {
             $actualChecksum = (Get-FileHash -Path $destExe -Algorithm SHA256).Hash.ToLower()
             if ($actualChecksum -ne $expectedChecksum.ToLower()) {
                 Remove-Item $destExe -Force -ErrorAction SilentlyContinue
