@@ -56,14 +56,20 @@ jobs:
           
           echo "needs_update=true" >> "$GITHUB_OUTPUT"
 
-      - name: Download new binaries
+      - name: Update checksums
         if: steps.check.outputs.needs_update == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           LATEST="${{ steps.check.outputs.latest }}"
-          gh release download "$LATEST" --repo jbearak/send-to-stata --pattern "send-to-stata-*.exe" --clobber
-          gh release download "$LATEST" --repo jbearak/send-to-stata --pattern "send-to-stata-*.sha256" --clobber
+          
+          # Download checksums from release
+          ARM64_SHA=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-arm64.exe.sha256") | .browser_download_url' | xargs curl -sL | tr -d '[:space:]')
+          X64_SHA=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-x64.exe.sha256") | .browser_download_url' | xargs curl -sL | tr -d '[:space:]')
+          
+          # Update checksums in installer
+          sed -i "s/^\$expectedChecksumArm64 = \".*\"/\$expectedChecksumArm64 = \"$ARM64_SHA\"/" install-send-to-stata.ps1
+          sed -i "s/^\$expectedChecksumX64 = \".*\"/\$expectedChecksumX64 = \"$X64_SHA\"/" install-send-to-stata.ps1
 
       - name: Create PR
         if: steps.check.outputs.needs_update == 'true'
@@ -78,10 +84,10 @@ jobs:
           
           git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
-          git add send-to-stata-*.exe send-to-stata-*.sha256
-          git commit -m "Update send-to-stata to $LATEST"
+          git add install-send-to-stata.ps1
+          git commit -m "Update send-to-stata checksums to $LATEST"
           git push origin "$BRANCH"
           
           gh pr create \
             --title "Update send-to-stata to $LATEST" \
-            --body "Updates send-to-stata binaries to $LATEST from [jbearak/send-to-stata](https://github.com/jbearak/send-to-stata/releases/tag/$LATEST)."
+            --body "Updates send-to-stata checksums to $LATEST from [jbearak/send-to-stata](https://github.com/jbearak/send-to-stata/releases/tag/$LATEST)."
