@@ -33,7 +33,11 @@ jobs:
           CURRENT_X64=$(grep '^\$expectedChecksumX64 = ' install-send-to-stata.ps1 | sed 's/.*"\(.*\)".*/\1/')
           
           # Get new checksum from release
-          NEW_X64=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-x64.exe.sha256") | .browser_download_url' | xargs curl -sL | tr -d '[:space:]')
+          NEW_X64_URL=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-x64.exe.sha256") | .browser_download_url')
+          NEW_X64=$(wget -qO- "$NEW_X64_URL" | tr -d '[:space:]')
+          
+          echo "Current X64 checksum: $CURRENT_X64"
+          echo "Latest X64 checksum: $NEW_X64"
           
           if [ "$CURRENT_X64" = "$NEW_X64" ]; then
             echo "Already up to date"
