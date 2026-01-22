@@ -66,6 +66,19 @@ else
     fi
 fi
 
+# Validate send-to-stata.sh checksum matches installer
+echo "Validating send-to-stata.sh checksum..."
+EXPECTED_SHA=$(grep '^SEND_TO_STATA_SHA256=' install-send-to-stata.sh | sed 's/.*"\([^"]*\)".*/\1/')
+ACTUAL_SHA=$(shasum -a 256 send-to-stata.sh | cut -d' ' -f1)
+if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+    echo "Error: send-to-stata.sh checksum mismatch" >&2
+    echo "  Expected: $EXPECTED_SHA" >&2
+    echo "  Actual:   $ACTUAL_SHA" >&2
+    echo "  Run: ./update-checksum.sh" >&2
+    exit 1
+fi
+echo "send-to-stata.sh checksum OK"
+
 echo "Validation passed."
 echo ""
 
