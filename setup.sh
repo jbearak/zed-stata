@@ -70,13 +70,21 @@ build_extension() {
   print_success "Built extension.wasm"
 }
 
+build_grammar() {
+  echo "Building grammar..."
+  cd "$SCRIPT_DIR/grammars/stata"
+  tree-sitter build --wasm -o stata.wasm
+  cd "$SCRIPT_DIR"
+  print_success "Built grammars/stata/stata.wasm"
+}
+
 # ============================================================================
 # Symlink Installation
 # ============================================================================
 
 install_symlink() {
   mkdir -p "$ZED_EXT_DIR"
-  
+
   if [[ -L "$SYMLINK_PATH" ]]; then
     rm "$SYMLINK_PATH"
   elif [[ -e "$SYMLINK_PATH" ]]; then
@@ -84,7 +92,7 @@ install_symlink() {
     echo "Remove it manually if you want to proceed"
     exit 1
   fi
-  
+
   ln -s "$SCRIPT_DIR" "$SYMLINK_PATH"
   print_success "Installed extension symlink at $SYMLINK_PATH"
 }
@@ -119,6 +127,7 @@ install() {
   echo ""
   check_prerequisites
   build_extension
+  build_grammar
   install_symlink
   echo ""
   "$SCRIPT_DIR/install-send-to-stata.sh" --quiet

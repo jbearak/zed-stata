@@ -1,7 +1,6 @@
 # Build artifacts
 /target/
 *.wasm
-!extension.wasm
 *.pdb
 *.exe
 
