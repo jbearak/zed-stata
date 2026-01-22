@@ -192,10 +192,11 @@ The `.gitignore` reflects this:
 ```
 *.wasm
 !extension.wasm
-!/grammars/stata.wasm
 ```
 
-This excludes all `.wasm` files except `extension.wasm` and the pre-built grammar. After building, you must commit the updated WASM files for users to receive the new version.
+This excludes all `.wasm` files except `extension.wasm`. After building, you must commit the updated `extension.wasm` for users to receive the new version.
+
+Note: `grammars/stata.wasm` is not committed to git. On macOS/Linux, Zed's extension CI builds the grammar from source. On Windows, `setup.ps1` downloads the pre-built grammar WASM from tree-sitter-stata releases.
 
 ## Windows Architecture
 
@@ -228,8 +229,7 @@ The grammar WASM is:
 1. Built on macOS/Linux using the WASI SDK
 2. Published to tree-sitter-stata releases as `tree-sitter-stata.wasm`
 3. Downloaded by `setup.ps1` and placed in `grammars/stata.wasm`
-4. Committed to git (exception in `.gitignore`)
-5. Referenced in `extension.toml` with `[grammars.stata]` and `path = "grammars/stata.wasm"`
+4. Referenced in `extension.toml` with `[grammars.stata]` and `path = "grammars/stata.wasm"`
 
 **Critical**: The `extension.toml` must include:
 ```toml

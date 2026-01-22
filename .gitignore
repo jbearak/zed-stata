@@ -21,9 +21,8 @@ Thumbs.db
 /server/
 
 # Grammars - fetched from remote repository, never commit locally
+# On Windows, setup.ps1 downloads pre-built WASM from tree-sitter-stata releases
 /grammars/
-# But include pre-built wasm for Windows (Zed can't compile grammars on Windows)
-!/grammars/stata.wasm
 /tree-sitter-stata
 scratch.do
 callee.do

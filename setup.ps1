@@ -561,8 +561,6 @@ function Download-TreeSitterGrammar {
     # Zed cannot compile tree-sitter grammars to WASM on Windows, so we download
     # a pre-built WASM from the tree-sitter-stata releases.
 
-    $grammarUrl = "https://github.com/jbearak/tree-sitter-stata/releases/download/v0.1.0/tree-sitter-stata.wasm"
-
     $grammarsDir = Join-Path $PSScriptRoot 'grammars'
     if (-not (Test-Path $grammarsDir)) {
         New-Item -ItemType Directory -Path $grammarsDir -Force | Out-Null
@@ -570,15 +568,34 @@ function Download-TreeSitterGrammar {
 
     $destWasm = Join-Path $grammarsDir 'stata.wasm'
 
-    Write-Host "Downloading pre-built tree-sitter-stata grammar..."
+    # Try to get latest release, fall back to v0.1.0
+    $fallbackVersion = "v0.1.0"
+    $grammarVersion = $fallbackVersion
+
+    try {
+        Write-Host "Checking for latest tree-sitter-stata release..."
+        $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/jbearak/tree-sitter-stata/releases/latest" -ErrorAction Stop
+        $grammarVersion = $releaseInfo.tag_name
+        Write-Host "Found latest release: $grammarVersion" -ForegroundColor Green
+    } catch {
+        Write-Host "Could not fetch latest release, using fallback: $fallbackVersion" -ForegroundColor Yellow
+    }
+
+    $grammarUrl = "https://github.com/jbearak/tree-sitter-stata/releases/download/$grammarVersion/tree-sitter-stata.wasm"
+
+    Write-Host "Downloading pre-built tree-sitter-stata grammar ($grammarVersion)..."
     Invoke-WebRequest -Uri $grammarUrl -OutFile $destWasm
 
     if (-not (Test-Path $destWasm)) {
         throw "Failed to download grammar WASM"
     }
 
-    # Verify checksum
-    Test-FileChecksum -Path $destWasm -ExpectedHash $script:Checksums.TreeSitterGrammar -Description "tree-sitter-stata grammar"
+    # Skip checksum verification for non-fallback versions (checksum is only known for fallback)
+    if ($grammarVersion -eq $fallbackVersion) {
+        Test-FileChecksum -Path $destWasm -ExpectedHash $script:Checksums.TreeSitterGrammar -Description "tree-sitter-stata grammar"
+    } else {
+        Write-Host "Skipping checksum verification for version $grammarVersion (checksum only known for $fallbackVersion)" -ForegroundColor Yellow
+    }
 
     $size = (Get-Item $destWasm).Length
     Write-Host "Downloaded grammar: grammars\stata.wasm ($size bytes)" -ForegroundColor Green
