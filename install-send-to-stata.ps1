@@ -106,7 +106,15 @@ function Install-Executable {
             Write-Host "Downloading $exeName from send-to-stata releases..."
         }
         
-        Invoke-WebRequest -Uri $url -OutFile $destExe
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $destExe -ErrorAction Stop
+        } catch {
+            throw "Failed to download $exeName from $url`nError: $_"
+        }
+
+        if (!(Test-Path $destExe)) {
+            throw "Download appeared to succeed but file does not exist at $destExe"
+        }
 
         # Verify checksum (skip for custom refs used in testing)
         if (!$githubRef -or $githubRef -eq "main") {
