@@ -15,10 +15,13 @@ A [Zed](https://zed.dev) extension providing support for the Stata statistical p
 
 > **Related Repositories:**
 >
-> - [tree-sitter-stata](https://github.com/jbearak/tree-sitter) - A tree-sitter grammar
 > - [Sight](https://github.com/jbearak/sight) - A language server and VS Code extension for Stata
-> 
-> This Zed extension uses the tree-sitter grammar and language server from those repositories to provide syntax highlighting and diagnostics.
+> - [tree-sitter-stata](https://github.com/jbearak/tree-sitter) - A tree-sitter grammar
+> - [send-to-stata](https://github.com/jbearak/send-to-stata) - A utility for sending Stata code to the Stata application
+> This Zed extension uses the tree-sitter grammar and language server from those repositories to provide syntax highlighting and diagnostics. The send-to-stata utility sends code to Stata on Windows; macOS uses AppleScript.
+
+> [!TIP]
+> The Zed extension does not include send-to-stata; run the installer below for your platform.
 
 ## Installation
 
