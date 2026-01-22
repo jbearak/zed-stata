@@ -59,12 +59,21 @@ jobs:
           LATEST="${{ steps.check.outputs.latest }}"
           
           # Download checksums from release
-          ARM64_SHA=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-arm64.exe.sha256") | .browser_download_url' | xargs curl -sL | tr -d '[:space:]')
-          X64_SHA=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-x64.exe.sha256") | .browser_download_url' | xargs curl -sL | tr -d '[:space:]')
+          ARM64_URL=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-arm64.exe.sha256") | .browser_download_url')
+          X64_URL=$(gh api repos/jbearak/send-to-stata/releases/latest --jq '.assets[] | select(.name=="send-to-stata-x64.exe.sha256") | .browser_download_url')
+          
+          ARM64_SHA=$(wget -qO- "$ARM64_URL" | tr -d '[:space:]')
+          X64_SHA=$(wget -qO- "$X64_URL" | tr -d '[:space:]')
+          
+          echo "ARM64 checksum: $ARM64_SHA"
+          echo "X64 checksum: $X64_SHA"
           
           # Update checksums in installer
           sed -i "s/^\$expectedChecksumArm64 = \".*\"/\$expectedChecksumArm64 = \"$ARM64_SHA\"/" install-send-to-stata.ps1
           sed -i "s/^\$expectedChecksumX64 = \".*\"/\$expectedChecksumX64 = \"$X64_SHA\"/" install-send-to-stata.ps1
+          
+          # Verify changes
+          git diff install-send-to-stata.ps1
 
       - name: Create PR
         if: steps.check.outputs.needs_update == 'true'
