@@ -36,13 +36,7 @@ PASSED_CHECKS=0
 FAILED_CHECKS=0
 
 # Required LSP binary assets
-REQUIRED_ASSETS=(
-    "sight-darwin-arm64"
-    "sight-linux-arm64"
-    "sight-linux-x64"
-    "sight-windows-x64.exe"
-    "sight-windows-arm64.exe"
-)
+REQUIRED_ASSETS=()
 
 # GitHub repositories
 LSP_REPO="jbearak/sight"

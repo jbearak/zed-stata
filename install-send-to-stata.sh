@@ -25,7 +25,7 @@ GITHUB_RAW_BASE="https://raw.githubusercontent.com/jbearak/sight-zed"
 GITHUB_REF="${SIGHT_GITHUB_REF:-main}"
 
 # Expected SHA-256 checksum of send-to-stata.sh (updated by update-checksum.sh)
-SEND_TO_STATA_SHA256="139a7687e49d80ac87ccaf5faa358296678419aa40f61e8ce99dc756fc8ac998"
+SEND_TO_STATA_SHA256="9833123ac4a2f635dba364711ee317248c4ce5950ccd45e2782222a1a013af23"
 
 # Focus behavior configuration (set by command-line flags or interactive prompt)
 # true = switch focus to Stata after sending code
